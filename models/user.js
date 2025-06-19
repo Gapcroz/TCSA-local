@@ -1,20 +1,29 @@
 // models/User.js
-// simple placeholder model for initial commit
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
   googleId: {
     type: String,
     unique: true,
-    sparse: true, // Permite que haya documentos sin googleId
+    sparse: true,
   },
   displayName: String,
   email: {
     type: String,
-    unique: true, // Asegura que no haya emails duplicados
+    unique: true,
     required: true,
   },
-  // Puedes añadir más campos aquí según necesites
+  // Nuevo campo para controlar el acceso del usuario
+  isActive: {
+    type: Boolean,
+    default: false, // Por defecto, los nuevos usuarios NO tienen acceso a la API
+  },
+  // Opcional: Un campo de rol si necesitas más granularidad (ej. 'user', 'admin')
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user',
+  },
   createdAt: {
     type: Date,
     default: Date.now,

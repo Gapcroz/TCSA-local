@@ -1,6 +1,6 @@
 // config/passport.js
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const User = require('../models/user');
+const userRepository = require('../repositories/userRepository'); // Usar el repositorio
 
 module.exports = (passport) => {
   passport.use(
@@ -12,21 +12,8 @@ module.exports = (passport) => {
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
-          const user = await User.findOne({ googleId: profile.id });
-
-          if (user) {
-            // Usuario existente, actualiza si es necesario
-            return done(null, user);
-          } else {
-            // Nuevo usuario
-            const newUser = await User.create({
-              googleId: profile.id,
-              displayName: profile.displayName,
-              email: profile.emails[0].value,
-              // Puedes guardar accessToken y refreshToken aquí si los necesitas
-            });
-            return done(null, newUser);
-          }
+          const user = await userRepository.findOrCreateUserByGoogleId(profile);
+          return done(null, user);
         } catch (err) {
           return done(err, null);
         }
@@ -35,12 +22,12 @@ module.exports = (passport) => {
   );
 
   passport.serializeUser((user, done) => {
-    done(null, user.id); // Solo el ID a la sesión
+    done(null, user.id);
   });
 
   passport.deserializeUser(async (id, done) => {
     try {
-      const user = await User.findById(id);
+      const user = await userRepository.findUserById(id);
       done(null, user);
     } catch (err) {
       done(err, null);

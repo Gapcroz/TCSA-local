@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Acceso Concedido</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background-color: #e6ffe6;
+        margin: 0;
+        color: #333;
+      }
+      .container {
+        background-color: #fff;
+        padding: 40px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        text-align: center;
+      }
+      h1 {
+        color: #28a745;
+        margin-bottom: 20px;
+      }
+      p {
+        font-size: 1.1em;
+        margin-bottom: 30px;
+      }
+      .logout-btn {
+        background-color: #dc3545;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 5px;
+        text-decoration: none;
+        font-size: 1em;
+        transition: background-color 0.3s ease;
+      }
+      .logout-btn:hover {
+        background-color: #c82333;
+      }
+      .api-info {
+        margin-top: 30px;
+        border-top: 1px solid #eee;
+        padding-top: 20px;
+        font-size: 0.9em;
+        color: #666;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>¡Autenticación Exitosa!</h1>
+      <p>
+        Has iniciado sesión correctamente. Ahora puedes usar nuestra API de
+        conversión de archivos.
+      </p>
+      <a href="/auth/logout" class="logout-btn">Cerrar Sesión</a>
+
+      <div class="api-info">
+        <h3>¿Cómo usar la API?</h3>
+        <p>
+          Usa tu token de sesión (cookie) en futuras solicitudes a los
+          endpoints protegidos. Por ejemplo, para subir un archivo:
+        </p>
+        <pre>
+          <code>
+            fetch('/api/files/upload', {
+              method: 'POST',
+              body: formData, // Asegúrate de incluir el archivo aquí
+              // Tus cookies de sesión serán enviadas automáticamente por el navegador
+            });
+          </code>
+        </pre>
+        <p>Para descargar, puedes visitar:</p>
+        <pre>
+          <code>
+            /api/files/:jobId/download
+            /api/files/:jobId/errors
+          </code>
+        </pre>
+        <p>
+          Para acceso programático (desde otra aplicación), considera
+          implementar JWTs u otro mecanismo si no quieres depender de cookies
+          de sesión.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

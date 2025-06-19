@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Iniciar Sesión en API de Conversión</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background-color: #f4f4f4;
+        margin: 0;
+      }
+      .login-container {
+        background-color: #fff;
+        padding: 40px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        text-align: center;
+      }
+      h1 {
+        color: #333;
+        margin-bottom: 20px;
+      }
+      .google-btn {
+        display: inline-block;
+        background-color: #4285f4;
+        color: white;
+        padding: 12px 25px;
+        border-radius: 5px;
+        text-decoration: none;
+        font-size: 16px;
+        font-weight: bold;
+        transition: background-color 0.3s ease;
+      }
+      .google-btn:hover {
+        background-color: #357ae8;
+      }
+      .google-icon {
+        vertical-align: middle;
+        margin-right: 10px;
+        width: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-container">
+      <h1>Bienvenido a la API de Conversión</h1>
+      <p>Inicia sesión para acceder a las funcionalidades.</p>
+      <a href="/auth/google" class="google-btn">
+        <img
+          src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Logo_of_Google_G_Suite.svg"
+          alt="Google logo"
+          class="google-icon"
+        />
+        Iniciar Sesión con Google
+      </a>
+    </div>
+  </body>
+</html>
