@@ -2,24 +2,28 @@
 const express = require('express');
 const router = express.Router();
 const fileController = require('../controllers/fileController');
-const { ensureAuthenticated, ensureApiAccess } = require('../middleware/authMiddleware'); // Importa ensureApiAccess
+// Importa el nuevo middleware unificado
+const { authenticateRequest, ensureApiAccess } = require('../middleware/authMiddleware');
+
+// Middleware para autenticar la solicitud y luego verificar acceso a la API
+// authenticateRequest se encarga de probar JWT o Sesión.
+const API_PROTECTED = [
+  authenticateRequest, // <--- Único middleware para autenticación
+  ensureApiAccess,
+];
 
 // Ruta para subir y convertir un archivo
-// Requiere autenticación Y acceso a la API
 router.post(
   '/upload',
-  ensureAuthenticated,
-  ensureApiAccess, // NUEVO: Verifica que el usuario tenga acceso a la API
+  API_PROTECTED, // Usa el array de middlewares
   fileController.upload.single('file'),
   fileController.uploadAndConvertFile,
 );
 
 // Ruta para descargar un archivo convertido
-// Requiere autenticación Y acceso a la API
-router.get('/:jobId/download', ensureAuthenticated, ensureApiAccess, fileController.getConvertedFile);
+router.get('/:jobId/download', API_PROTECTED, fileController.getConvertedFile);
 
 // Ruta para descargar el reporte de errores
-// Requiere autenticación Y acceso a la API
-router.get('/:jobId/errors', ensureAuthenticated, ensureApiAccess, fileController.getErrorReport);
+router.get('/:jobId/errors', API_PROTECTED, fileController.getErrorReport);
 
 module.exports = router;
