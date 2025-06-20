@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard de Usuario</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background-color: #e6ffe6;
+        margin: 0;
+        color: #333;
+      }
+      .container {
+        background-color: #fff;
+        padding: 40px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        width: 500px;
+      }
+      h1 {
+        color: #28a745;
+        margin-bottom: 20px;
+      }
+      h2 {
+        color: #444;
+        margin-top: 30px;
+        margin-bottom: 15px;
+      }
+      p {
+        font-size: 1.1em;
+        margin-bottom: 10px;
+      }
+      .logout-btn {
+        background-color: #dc3545;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 5px;
+        text-decoration: none;
+        font-size: 1em;
+        transition: background-color 0.3s ease;
+        margin-top: 20px;
+      }
+      .logout-btn:hover {
+        background-color: #c82333;
+      }
+      .api-info {
+        margin-top: 30px;
+        border-top: 1px solid #eee;
+        padding-top: 20px;
+        font-size: 0.9em;
+        color: #666;
+        text-align: left;
+      }
+      .api-info pre {
+        background-color: #eee;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      .action-section {
+        margin-top: 30px;
+        border-top: 1px solid #eee;
+        padding-top: 20px;
+        text-align: left;
+      }
+      .action-section button {
+        background-color: #007bff;
+        color: white;
+        padding: 8px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-right: 10px;
+        transition: background-color 0.3s ease;
+      }
+      .action-section button:hover {
+        background-color: #0056b3;
+      }
+      .action-section input[type='password'] {
+        width: 180px;
+        padding: 8px;
+        margin-right: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .message {
+        margin-top: 10px;
+        font-size: 0.9em;
+      }
+      .error {
+        color: red;
+      }
+      .success {
+        color: green;
+      }
+      .hidden {
+        display: none;
+      }
+      .google-link-btn {
+        background-color: #4285f4;
+      }
+      .google-link-btn:hover {
+        background-color: #357ae8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>¡Autenticación Exitosa!</h1>
+      <p>Bienvenido, <strong id="userName">Cargando...</strong>.</p>
+      <p>Tu estado de API: <strong id="apiAccessStatus">Cargando...</strong></p>
+      <p id="googleLinkedStatus">Google vinculado: Cargando...</p>
+      <p id="passwordSetStatus">Contraseña establecida: Cargando...</p>
+
+      <div class="action-section">
+        <h2>Gestión de Cuenta</h2>
+        <div id="passwordSection">
+          <h3>Añadir / Cambiar Contraseña</h3>
+          <input
+            type="password"
+            id="newPassword"
+            placeholder="Nueva Contraseña"
+          />
+          <button id="setPasswordBtn">Establecer Contraseña</button>
+          <p id="passwordMessage" class="message"></p>
+        </div>
+
+        <div id="googleSection" style="margin-top: 20px;">
+          <h3>Vincular Cuenta de Google</h3>
+          <button
+            id="linkGoogleBtn"
+            class="google-link-btn"
+            onclick="window.location.href='/auth/google?link=true'"
+          >
+            Vincular con Google
+          </button>
+          <button
+            id="unlinkGoogleBtn"
+            style="background-color: #ffc107; color: black"
+            onclick="unlinkGoogle()"
+          >
+            Desvincular Google
+          </button>
+          <p id="googleMessage" class="message"></p>
+        </div>
+      </div>
+
+      <div class="action-section">
+        <h2>Acceso Programático (JWT)</h2>
+        <button id="getJwtBtn">Obtener JWT</button>
+        <p id="jwtMessage" class="message"></p>
+        <pre><code id="jwtTokenDisplay"></code></pre>
+      </div>
+
+      <a href="/auth/logout" class="logout-btn">Cerrar Sesión</a>
+
+      <div class="api-info">
+        <h3>¿Cómo usar la API?</h3>
+        <p>
+          Si obtuviste un JWT, úsalo en el encabezado `Authorization: Bearer
+          &lt;token&gt;` para todas las solicitudes a la API.
+        </p>
+        <pre>
+          <code>
+            fetch('/api/files/upload', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer TU_JWT_AQUI`
+              },
+              body: formData
+            });
+          </code>
+        </pre>
+        <p>Para descargar, puedes visitar:</p>
+        <pre>
+          <code>
+            /api/files/:jobId/download
+            /api/files/:jobId/errors
+          </code>
+        </pre>
+      </div>
+    </div>
+
+    <script>
+      // Función para obtener los datos del usuario y actualizar la vista
+      async function fetchUserData() {
+        try {
+          const response = await fetch('/api/user/profile'); // Nuevo endpoint para obtener perfil
+          const data = await response.json();
+
+          if (response.ok) {
+            document.getElementById('userName').textContent =
+              data.user.displayName || data.user.email;
+            document.getElementById('apiAccessStatus').textContent = data.user
+              .isActive
+              ? 'Activo'
+              : 'Inactivo (contacta al admin)';
+            document.getElementById('googleLinkedStatus').textContent = data
+              .user.googleId
+              ? 'Vinculado con Google'
+              : 'No vinculado con Google';
+            document.getElementById('passwordSetStatus').textContent = data
+              .user.passwordSet
+              ? 'Contraseña establecida'
+              : 'No hay contraseña establecida';
+
+            // Mostrar/ocultar botones de vincular/desvincular
+            if (data.user.googleId) {
+              document.getElementById('linkGoogleBtn').classList.add('hidden');
+              document
+                .getElementById('unlinkGoogleBtn')
+                .classList.remove('hidden');
+            } else {
+              document
+                .getElementById('linkGoogleBtn')
+                .classList.remove('hidden');
+              document
+                .getElementById('unlinkGoogleBtn')
+                .classList.add('hidden');
+            }
+            if (data.user.passwordSet) {
+              document.getElementById('setPasswordBtn').textContent =
+                'Cambiar Contraseña';
+            } else {
+              document.getElementById('setPasswordBtn').textContent =
+                'Establecer Contraseña';
+            }
+          } else {
+            console.error('Error fetching user data:', data.message);
+            // Si el token expira o la sesión falla, redirigir al login
+            window.location.href = '/auth/login';
+          }
+        } catch (error) {
+          console.error('Network error fetching user data:', error);
+          window.location.href = '/auth/login'; // Redirigir en caso de error de red
+        }
+      }
+
+      // Obtener JWT
+      document.getElementById('getJwtBtn').addEventListener('click', async () => {
+        const jwtMessageElement = document.getElementById('jwtMessage');
+        const jwtTokenDisplay = document.getElementById('jwtTokenDisplay');
+        jwtMessageElement.textContent = '';
+        jwtTokenDisplay.textContent = '';
+        jwtMessageElement.className = 'message';
+
+        try {
+          const response = await fetch('/auth/jwt');
+          const data = await response.json();
+
+          if (response.ok) {
+            jwtTokenDisplay.textContent = data.token;
+            jwtMessageElement.textContent = data.message;
+            jwtMessageElement.classList.add('success');
+          } else {
+            jwtMessageElement.textContent =
+              data.message || 'Error al obtener JWT.';
+            jwtMessageElement.classList.add('error');
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          jwtMessageElement.textContent = 'Error de red o del servidor.';
+          jwtMessageElement.classList.add('error');
+        }
+      });
+
+      // Establecer/Cambiar Contraseña
+      document
+        .getElementById('setPasswordBtn')
+        .addEventListener('click', async () => {
+          const newPassword = document.getElementById('newPassword').value;
+          const passwordMessageElement =
+            document.getElementById('passwordMessage');
+          passwordMessageElement.textContent = '';
+          passwordMessageElement.className = 'message';
+
+          if (!newPassword) {
+            passwordMessageElement.textContent =
+              'Por favor, ingrese una nueva contraseña.';
+            passwordMessageElement.classList.add('error');
+            return;
+          }
+
+          try {
+            const response = await fetch('/api/user/set-password', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ newPassword }),
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+              passwordMessageElement.textContent = data.message;
+              passwordMessageElement.classList.add('success');
+              fetchUserData(); // Actualizar estado de la cuenta
+            } else {
+              passwordMessageElement.textContent =
+                data.message || 'Error al establecer contraseña.';
+              passwordMessageElement.classList.add('error');
+            }
+          } catch (error) {
+            console.error('Error:', error);
+            passwordMessageElement.textContent = 'Error de red o del servidor.';
+            passwordMessageElement.classList.add('error');
+          }
+        });
+
+      // Desvincular Google
+      async function unlinkGoogle() {
+        const googleMessageElement = document.getElementById('googleMessage');
+        googleMessageElement.textContent = '';
+        googleMessageElement.className = 'message';
+
+        if (
+          !confirm(
+            '¿Está seguro de que desea desvincular su cuenta de Google? Si no tiene una contraseña establecida, no podrá iniciar sesión.',
+          )
+        ) {
+          return;
+        }
+
+        try {
+          const response = await fetch('/api/user/unlink-google', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+
+          const data = await response.json();
+          if (response.ok) {
+            googleMessageElement.textContent = data.message;
+            googleMessageElement.classList.add('success');
+            fetchUserData(); // Actualizar estado de la cuenta
+          } else {
+            googleMessageElement.textContent =
+              data.message || 'Error al desvincular Google.';
+            googleMessageElement.classList.add('error');
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          googleMessageElement.textContent = 'Error de red o del servidor.';
+          googleMessageElement.classList.add('error');
+        }
+      }
+
+      // Cargar datos al cargar la página
+      document.addEventListener('DOMContentLoaded', fetchUserData);
+    </script>
+  </body>
+</html>

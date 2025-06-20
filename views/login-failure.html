@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fallo de Autenticación</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background-color: #fff0f0;
+        margin: 0;
+        color: #333;
+      }
+      .container {
+        background-color: #fff;
+        padding: 40px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        text-align: center;
+      }
+      h1 {
+        color: #dc3545;
+        margin-bottom: 20px;
+      }
+      p {
+        font-size: 1.1em;
+        margin-bottom: 30px;
+      }
+      .retry-btn {
+        background-color: #007bff;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 5px;
+        text-decoration: none;
+        font-size: 1em;
+        transition: background-color 0.3s ease;
+      }
+      .retry-btn:hover {
+        background-color: #0056b3;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>¡Fallo la Autenticación!</h1>
+      <p>
+        No pudimos autenticarte. Por favor, asegúrate de haber concedido los
+        permisos necesarios.
+      </p>
+      <a href="/auth/login" class="retry-btn">Reintentar Iniciar Sesión</a>
+    </div>
+  </body>
+</html>
