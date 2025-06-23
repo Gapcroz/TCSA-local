@@ -12,7 +12,7 @@
     <div class="container">
       <h1>Panel de Administración de Usuarios</h1>
 
-      <p id="adminMessage" class="message"></p>
+      <p id="adminMessage" class="message admin-message"></p>
 
       <h2>Gestión de Usuarios</h2>
       <table class="users-table">
@@ -33,7 +33,12 @@
 
       <div class="dashboard-nav">
         <a href="/auth/dashboard" class="button">Volver al Dashboard</a>
-        <a href="/auth/logout" class="logout-btn">Cerrar Sesión</a>
+        <button
+          onclick="window.location.href='/auth/logout'"
+          class="logout-btn"
+        >
+          Cerrar Sesión
+        </button>
       </div>
     </div>
 

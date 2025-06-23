@@ -1,58 +1,91 @@
 /* file-conversion.css */
 body {
-    background-color: #e6ffe6; /* Same as dashboard */
+  background-color: #e6f7ff; /* Same as dashboard for consistency */
 }
 .container {
-  width: 700px;
-  align-items: flex-start; /* Align to top for longer content */
+  width: 750px;
+  align-items: center;
+  padding: 40px;
 }
 h1 {
-  color: #28a745;
+  color: #007bff;
+  margin-bottom: 30px;
+  font-size: 2.2em;
 }
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 25px;
   text-align: left;
+  width: 100%;
 }
 .form-group label {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   font-weight: bold;
+  color: #333;
+  font-size: 1.05em;
 }
 .form-group input[type='file'],
 .form-group select {
-  width: calc(100% - 22px);
+  width: calc(100% - 24px);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 1em;
+  background-color: #fdfdff;
 }
 .form-group button {
   background-color: #007bff;
+  padding: 12px 25px;
+  font-size: 1.05em;
+  border-radius: 8px;
 }
 .form-group button:hover {
   background-color: #0056b3;
 }
 
+h2 {
+  margin-top: 40px;
+  margin-bottom: 25px;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+  width: 100%; /* Ensure h2 takes full width */
+}
+
 .conversion-job {
   display: flex;
+  flex-wrap: wrap; /* Allow items to wrap */
   justify-content: space-between;
   align-items: center;
-  padding: 12px 15px;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  margin-bottom: 10px;
-  background-color: #f9f9f9;
+  padding: 15px 20px;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  background-color: #fefefe;
   font-size: 0.95em;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
-.conversion-job span {
-  flex: 1;
+.conversion-job > span {
+  flex: 1 1 auto; /* Allow flexible growth, but don't shrink too much */
+  min-width: 120px; /* Minimum width for each span before wrapping */
   text-align: left;
   margin-right: 15px;
-  word-break: break-all;
+  word-break: break-word; /* Use break-word for better wrapping */
+  margin-bottom: 10px; /* Space between items when wrapping */
+}
+.conversion-job > span:last-of-type {
+  margin-right: 0;
 }
 .conversion-job .status-badge {
-  padding: 5px 10px;
-  border-radius: 4px;
+  padding: 6px 12px;
+  border-radius: 5px;
   font-weight: bold;
   color: white;
-  min-width: 90px; /* Ensure badges have similar width */
+  min-width: 100px;
   text-align: center;
+  font-size: 0.85em;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 10px;
 }
 .conversion-job .status-processing {
   background-color: #ffc107;
@@ -61,15 +94,21 @@ h1 {
   background-color: #28a745;
 }
 .conversion-job .status-completed_with_errors {
-  background-color: #ff9800;
+  background-color: #fd7e14; /* Orange-red for partial success */
 }
 .conversion-job .status-failed {
   background-color: #dc3545;
 }
+.conversion-job .job-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
 .conversion-job .job-actions button {
-  margin-left: 8px;
-  padding: 6px 12px;
-  font-size: 0.85em;
+  padding: 8px 15px;
+  font-size: 0.8em;
+  border-radius: 6px;
 }
 .conversion-job .job-actions button.download-btn {
   background-color: #17a2b8;
@@ -87,4 +126,5 @@ h1 {
   color: #777;
   margin-top: 20px;
   text-align: center;
+  font-style: italic;
 }

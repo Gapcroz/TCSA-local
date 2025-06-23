@@ -1,3 +1,4 @@
+// /src/js/admin-dashboard.js
 import { displayMessage } from './common.js';
 
 const usersTableBody = document.getElementById('usersTableBody');

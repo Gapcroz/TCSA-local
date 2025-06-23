@@ -10,27 +10,103 @@
   </head>
   <body>
     <div class="container">
-      <h1>¡Autenticación Exitosa!</h1>
-      <p>Bienvenido, <strong id="userName">Cargando...</strong>.</p>
-      <p>Tu estado de API: <strong id="apiAccessStatus">Cargando...</strong></p>
-      <p id="googleLinkedStatus">Google vinculado: Cargando...</p>
-      <p id="passwordSetStatus">Contraseña establecida: Cargando...</p>
+      <h1>Dashboard de Usuario</h1>
 
-      <div class="action-section">
-        <h2>Gestión de Cuenta</h2>
-        <div id="passwordSection">
-          <h3>Añadir / Cambiar Contraseña</h3>
-          <input
-            type="password"
-            id="newPassword"
-            placeholder="Nueva Contraseña"
-          />
-          <button id="setPasswordBtn">Establecer Contraseña</button>
-          <p id="passwordMessage" class="message"></p>
+      <div class="dashboard-tabs">
+        <button class="tab-button active" data-tab="account-overview">
+          Mi Cuenta
+        </button>
+        <button class="tab-button" data-tab="account-settings">
+          Configuración de Cuenta
+        </button>
+      </div>
+
+      <div id="account-overview" class="tab-pane active">
+        <div class="info-section">
+          <h2>Información General</h2>
+          <p>
+            Bienvenido, <strong id="userName">Cargando...</strong>.
+          </p>
+          <p>
+            Estado de Acceso API:
+            <strong id="apiAccessStatus">Cargando...</strong>
+          </p>
         </div>
 
-        <div id="googleSection" style="margin-top: 20px;">
-          <h3>Vincular Cuenta de Google</h3>
+        <div class="action-section">
+          <h2>Acceso Programático (JWT)</h2>
+          <p class="message" id="jwtMessage"></p>
+          <button id="getJwtBtn">Obtener JWT</button>
+          <div id="jwtTokenDisplay" class="jwt-display">
+            <code></code>
+            <button id="copyJwtBtn" class="hidden">Copiar</button>
+          </div>
+        </div>
+
+        <div class="api-info">
+          <h3>¿Cómo usar la API?</h3>
+          <p>
+            Si obtuviste un JWT, úsalo en el encabezado
+            <code
+              >Authorization: Bearer &lt;TU_TOKEN_AQUI&gt;</code
+            >
+            para todas las solicitudes a la API.
+          </p>
+          <pre>
+            <code>
+fetch('/api/files/upload', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer TU_JWT_AQUI`
+  },
+  body: formData
+});
+            </code>
+          </pre>
+          <p>Para descargar archivos, puedes usar las siguientes rutas:</p>
+          <pre>
+            <code>
+/api/files/:jobId/download
+/api/files/:jobId/errors
+            </code>
+          </pre>
+        </div>
+      </div>
+
+      <div id="account-settings" class="tab-pane">
+        <div class="info-section">
+          <h2>Detalles de Cuenta</h2>
+          <p id="googleLinkedStatus">Google vinculado: Cargando...</p>
+          <p id="passwordSetStatus">Contraseña establecida: Cargando...</p>
+        </div>
+
+        <div class="action-section">
+          <h3>Añadir / Cambiar Contraseña</h3>
+          <p id="passwordMessage" class="message"></p>
+          <div class="form-group">
+            <label for="currentPassword">Contraseña Actual (si ya tiene una):</label>
+            <input
+              type="password"
+              id="currentPassword"
+              placeholder="Contraseña Actual"
+              autocomplete="current-password"
+            />
+          </div>
+          <div class="form-group">
+            <label for="newPassword">Nueva Contraseña:</label>
+            <input
+              type="password"
+              id="newPassword"
+              placeholder="Nueva Contraseña"
+              autocomplete="new-password"
+            />
+          </div>
+          <button id="setPasswordBtn">Establecer / Cambiar Contraseña</button>
+        </div>
+
+        <div class="action-section" style="margin-top: 20px;">
+          <h3>Vincular / Desvincular Cuenta de Google</h3>
+          <p id="googleMessage" class="message"></p>
           <button
             id="linkGoogleBtn"
             class="google-link-btn"
@@ -38,18 +114,10 @@
           >
             Vincular con Google
           </button>
-          <button id="unlinkGoogleBtn" class="hidden" onclick="unlinkGoogle()">
+          <button id="unlinkGoogleBtn" class="hidden">
             Desvincular Google
           </button>
-          <p id="googleMessage" class="message"></p>
         </div>
-      </div>
-
-      <div class="action-section">
-        <h2>Acceso Programático (JWT)</h2>
-        <button id="getJwtBtn">Obtener JWT</button>
-        <p id="jwtMessage" class="message"></p>
-        <pre><code id="jwtTokenDisplay"></code></pre>
       </div>
 
       <div class="dashboard-nav">
@@ -57,33 +125,12 @@
         <a href="/admin-dashboard" id="adminLink" class="admin-link hidden"
           >Panel de Administración</a
         >
-        <a href="/auth/logout" class="logout-btn">Cerrar Sesión</a>
-      </div>
-
-      <div class="api-info">
-        <h3>¿Cómo usar la API?</h3>
-        <p>
-          Si obtuviste un JWT, úsalo en el encabezado `Authorization: Bearer
-          &lt;token&gt;` para todas las solicitudes a la API.
-        </p>
-        <pre>
-          <code>
-            fetch('/api/files/upload', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer TU_JWT_AQUI`
-              },
-              body: formData
-            });
-          </code>
-        </pre>
-        <p>Para descargar, puedes visitar (después de obtener un `jobId`):</p>
-        <pre>
-          <code>
-            /api/files/:jobId/download
-            /api/files/:jobId/errors
-          </code>
-        </pre>
+        <button
+          onclick="window.location.href='/auth/logout'"
+          class="logout-btn"
+        >
+          Cerrar Sesión
+        </button>
       </div>
     </div>
 

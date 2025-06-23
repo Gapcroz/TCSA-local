@@ -1,0 +1,47 @@
+<!-- /src/html/register.html -->
+ <!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Registro de Cuenta</title>
+    <link rel="stylesheet" href="../css/main.css" />
+    <link rel="stylesheet" href="../css/register.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Crear una Nueva Cuenta</h1>
+
+      <form id="registerForm" class="register-form">
+        <input
+          type="email"
+          id="email"
+          placeholder="Email"
+          required
+          autocomplete="username"
+        />
+        <input
+          type="password"
+          id="password"
+          placeholder="Contraseña"
+          required
+          autocomplete="new-password"
+        />
+        <input
+          type="password"
+          id="confirmPassword"
+          placeholder="Confirmar Contraseña"
+          required
+          autocomplete="new-password"
+        />
+        <button type="submit" id="registerSubmitButton">Registrarse</button>
+      </form>
+      <p id="message" class="message"></p>
+      <div class="login-link-container">
+        ¿Ya tienes una cuenta? <a href="/auth/login">Inicia Sesión aquí</a>.
+      </div>
+    </div>
+
+    <script type="module" src="../js/register.js"></script>
+  </body>
+</html> 

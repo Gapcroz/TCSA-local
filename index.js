@@ -96,6 +96,11 @@ app.get('/auth/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'login.html'));
 });
 
+// NEW: Registration page - accessible to all
+app.get('/auth/register', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'register.html'));
+});
+
 // Dashboard page - requires authentication
 app.get('/auth/dashboard', authenticateRequest, (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'dashboard.html'));

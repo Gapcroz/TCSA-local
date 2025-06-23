@@ -15,11 +15,13 @@ const commonBuildOptions = {
   // For this setup, we'll create separate bundles for each HTML page's JS and CSS
   entryPoints: [
     `${srcdir}/js/login.js`,
+    `${srcdir}/js/register.js`,
     `${srcdir}/js/dashboard.js`,
     `${srcdir}/js/file-conversion.js`,
     `${srcdir}/js/admin-dashboard.js`,
     `${srcdir}/css/main.css`,
     `${srcdir}/css/login.css`,
+    `${srcdir}/css/register.css`,
     `${srcdir}/css/dashboard.css`,
     `${srcdir}/css/file-conversion.css`,
     `${srcdir}/css/admin.css`,

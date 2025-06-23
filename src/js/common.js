@@ -1,3 +1,4 @@
+// /src/js/common.js
 export function displayMessage(element, text, type) {
   element.textContent = text;
   element.className = `message ${type}`;

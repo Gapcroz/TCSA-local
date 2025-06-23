@@ -1,19 +1,42 @@
+// /src/js/dashboard.js
 import { displayMessage } from './common.js';
 
 const userNameElement = document.getElementById('userName');
 const apiAccessStatusElement = document.getElementById('apiAccessStatus');
+
+// Account Settings Tab Elements
 const googleLinkedStatusElement = document.getElementById('googleLinkedStatus');
 const passwordSetStatusElement = document.getElementById('passwordSetStatus');
 const linkGoogleBtn = document.getElementById('linkGoogleBtn');
 const unlinkGoogleBtn = document.getElementById('unlinkGoogleBtn');
 const setPasswordBtn = document.getElementById('setPasswordBtn');
+const currentPasswordInput = document.getElementById('currentPassword'); // Added
 const newPasswordInput = document.getElementById('newPassword');
 const passwordMessageElement = document.getElementById('passwordMessage');
 const googleMessageElement = document.getElementById('googleMessage');
+
+// Account Overview Tab Elements
 const getJwtBtn = document.getElementById('getJwtBtn');
 const jwtMessageElement = document.getElementById('jwtMessage');
 const jwtTokenDisplay = document.getElementById('jwtTokenDisplay');
+const copyJwtBtn = document.getElementById('copyJwtBtn'); // New copy button
+
 const adminLink = document.getElementById('adminLink');
+
+// Tab functionality
+document.querySelectorAll('.tab-button').forEach((button) => {
+  button.addEventListener('click', () => {
+    const tabToActivate = button.dataset.tab;
+
+    // Deactivate current active tab button and pane
+    document.querySelector('.tab-button.active').classList.remove('active');
+    document.querySelector('.tab-pane.active').classList.remove('active');
+
+    // Activate new tab button and pane
+    button.classList.add('active');
+    document.getElementById(tabToActivate).classList.add('active');
+  });
+});
 
 async function fetchUserData() {
   try {
@@ -28,6 +51,7 @@ async function fetchUserData() {
         : 'Inactivo (contacta al admin)';
       apiAccessStatusElement.style.color = user.isActive ? 'green' : 'red';
 
+      // Update Account Settings tab info
       googleLinkedStatusElement.textContent = user.googleId
         ? 'Vinculado con Google'
         : 'No vinculado con Google';
@@ -66,18 +90,26 @@ async function fetchUserData() {
 
 getJwtBtn.addEventListener('click', async () => {
   jwtMessageElement.textContent = '';
-  jwtTokenDisplay.textContent = '';
+  jwtTokenDisplay.querySelector('code').textContent = '';
   jwtMessageElement.className = 'message'; // Reset class
+  jwtTokenDisplay.classList.remove('bugged'); // Remove bugged class
+  copyJwtBtn.classList.add('hidden'); // Hide copy button initially
 
   try {
     const response = await fetch('/auth/jwt');
     const data = await response.json();
 
     if (response.ok) {
-      jwtTokenDisplay.textContent = data.token;
+      const token = data.token;
+      jwtTokenDisplay.querySelector('code').textContent = token;
+      jwtTokenDisplay.classList.remove('bugged'); // Ensure it's not bugged
+      copyJwtBtn.classList.remove('hidden'); // Show copy button
       displayMessage(jwtMessageElement, data.message, 'success');
     } else {
-      jwtTokenDisplay.textContent = '';
+      jwtTokenDisplay.querySelector('code').textContent =
+        'Error al cargar JWT. Intente de nuevo.';
+      jwtTokenDisplay.classList.add('bugged'); // Add bugged class for visual cue
+      copyJwtBtn.classList.add('hidden'); // Keep copy button hidden
       displayMessage(
         jwtMessageElement,
         data.message || 'Error al obtener JWT.',
@@ -86,6 +118,10 @@ getJwtBtn.addEventListener('click', async () => {
     }
   } catch (error) {
     console.error('Error:', error);
+    jwtTokenDisplay.querySelector('code').textContent =
+      'Error de red o del servidor al obtener JWT.';
+    jwtTokenDisplay.classList.add('bugged'); // Add bugged class for network error
+    copyJwtBtn.classList.add('hidden'); // Keep copy button hidden
     displayMessage(
       jwtMessageElement,
       'Error de red o del servidor.',
@@ -94,7 +130,21 @@ getJwtBtn.addEventListener('click', async () => {
   }
 });
 
+copyJwtBtn.addEventListener('click', () => {
+  const jwtText = jwtTokenDisplay.querySelector('code').textContent;
+  navigator.clipboard.writeText(jwtText).then(
+    () => {
+      displayMessage(jwtMessageElement, 'JWT copiado al portapapeles!', 'info');
+    },
+    (err) => {
+      displayMessage(jwtMessageElement, 'Error al copiar JWT.', 'error');
+      console.error('Error copying JWT: ', err);
+    },
+  );
+});
+
 setPasswordBtn.addEventListener('click', async () => {
+  const currentPassword = currentPasswordInput.value;
   const newPassword = newPasswordInput.value;
   passwordMessageElement.textContent = '';
   passwordMessageElement.className = 'message';
@@ -110,7 +160,7 @@ setPasswordBtn.addEventListener('click', async () => {
   if (newPassword.length < 6) {
     displayMessage(
       passwordMessageElement,
-      'La contraseña debe tener al menos 6 caracteres.',
+      'La nueva contraseña debe tener al menos 6 caracteres.',
       'error',
     );
     return;
@@ -122,18 +172,19 @@ setPasswordBtn.addEventListener('click', async () => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ newPassword }),
+      body: JSON.stringify({ currentPassword, newPassword }),
     });
 
     const data = await response.json();
     if (response.ok) {
       displayMessage(passwordMessageElement, data.message, 'success');
+      currentPasswordInput.value = '';
       newPasswordInput.value = '';
-      fetchUserData();
+      fetchUserData(); // Refresh status
     } else {
       displayMessage(
         passwordMessageElement,
-        data.message || 'Error al establecer contraseña.',
+        data.message || 'Error al establecer/cambiar contraseña.',
         'error',
       );
     }
@@ -147,13 +198,13 @@ setPasswordBtn.addEventListener('click', async () => {
   }
 });
 
-window.unlinkGoogle = async function() { // Make global for onclick
+unlinkGoogleBtn.addEventListener('click', async () => {
   googleMessageElement.textContent = '';
   googleMessageElement.className = 'message';
 
   if (
     !confirm(
-      '¿Está seguro de que desea desvincular su cuenta de Google? Si no tiene una contraseña establecida, no podrá iniciar sesión después.',
+      '¿Está seguro de que desea desvincular su cuenta de Google? Si no tiene una contraseña establecida, no podrá iniciar sesión después con email/password.',
     )
   ) {
     return;
@@ -170,7 +221,7 @@ window.unlinkGoogle = async function() { // Make global for onclick
     const data = await response.json();
     if (response.ok) {
       displayMessage(googleMessageElement, data.message, 'success');
-      fetchUserData();
+      fetchUserData(); // Refresh status
     } else {
       displayMessage(
         googleMessageElement,
@@ -186,6 +237,6 @@ window.unlinkGoogle = async function() { // Make global for onclick
       'error',
     );
   }
-}
+});
 
 document.addEventListener('DOMContentLoaded', fetchUserData);
