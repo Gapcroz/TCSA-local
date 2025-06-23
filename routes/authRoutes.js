@@ -1,46 +1,60 @@
 // routes/authRoutes.js
 const express = require('express');
-const router = express.Router();
 const passport = require('passport');
 const authController = require('../controllers/authController');
-const { authenticateRequest, ensureApiAccess } = require('../middleware/authMiddleware');
 
-// Middleware para autenticar la solicitud y luego verificar acceso a la API
-// authenticateRequest se encarga de probar JWT o Sesión.
-const API_PROTECTED = [
-  authenticateRequest, // <--- Único middleware para autenticación
-  ensureApiAccess,
-];
-// Ruta principal para mostrar la página de inicio de sesión
-router.get('/login', authController.getLoginPage);
+const router = express.Router();
 
-// Ruta para iniciar el proceso de autenticación de Google
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-
-// Ruta de callback de Google después de la autenticación
+// Google OAuth routes
 router.get(
-  '/google/callback',
-  passport.authenticate('google', {
-    failureRedirect: '/auth/login-failure',
-    successRedirect: '/auth/dashboard', // Redirige al dashboard HTML
-  }),
+  '/google',
+  (req, res, next) => {
+    // Pass 'link=true' to Google strategy if it's for linking an account
+    const state = req.query.link ? 'link=true' : 'login=true';
+    passport.authenticate('google', { scope: ['profile', 'email'], state: state })(req, res, next);
+  }
 );
 
-// Ruta para manejar fallos de autenticación
-router.get('/login-failure', authController.handleLoginFailure);
+router.get(
+  '/google/redirect',
+  passport.authenticate('google', {
+    failureRedirect: '/auth/login-failure', // Redirect to the public failure route
+  }),
+  (req, res) => {
+    // Determine redirect based on state or if account was linked
+    if (req.user && req.query.state === 'link=true') {
+      // If linking was successful, redirect back to dashboard
+      res.redirect('/auth/dashboard');
+    } else if (req.user && req.user.isActive) {
+      // Regular login successful, redirect to dashboard
+      res.redirect('/auth/dashboard');
+    } else if (req.user && !req.user.isActive) {
+      // User is authenticated but account is not active
+      res.redirect('/access-pending'); // Redirect to access pending page
+    } else {
+        // Fallback, should ideally not happen if passport.authenticate worked
+        res.redirect('/auth/login-failure');
+    }
+  }
+);
 
-// Ruta de ejemplo para el dashboard (protegida y muestra HTML)
-router.get('/dashboard', API_PROTECTED, authController.getDashboard);
-
-// Ruta para cerrar sesión
-router.get('/logout', authController.handleLogout);
-// NUEVO: Ruta para registro con email/contraseña
+// Local login/register routes
+// Note: These handle the *submission* of login/registration forms,
+// the HTML itself is served by `app.get` in server.js.
+router.post('/local-login', authController.localLogin);
 router.post('/register', authController.registerUser);
 
-// NUEVO: Ruta para login con email/contraseña (inicia sesión de navegador)
-router.post('/local-login', authController.localLogin);
+// Logout route
+router.get('/logout', authController.handleLogout);
 
-// Ruta para obtener JWT (protegida por sesión, no por JWT aún)
-router.get('/jwt', API_PROTECTED, authController.getJwtToken);
+// JWT generation route (for API clients, typically via local-login POST, but also directly from dashboard)
+router.get('/jwt', authController.getJwtToken);
+
+
+// Removed this as it's handled by server.js now:
+// router.get('/login', authController.getLoginPage);
+// router.get('/dashboard', authController.getDashboard);
+// router.get('/login-failure', authController.handleLoginFailure);
+
 
 module.exports = router;

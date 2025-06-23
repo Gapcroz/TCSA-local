@@ -1,0 +1,23 @@
+/* login-failure.css */
+body {
+    background-color: #fff0f0; /* Reddish background */
+}
+.container {
+  width: 400px;
+}
+h1 {
+  color: #dc3545;
+}
+.retry-btn {
+  background-color: #007bff;
+  color: white;
+  padding: 12px 25px;
+  border-radius: 5px;
+  text-decoration: none;
+  font-size: 1.05em;
+  transition: background-color 0.3s ease;
+  display: inline-block;
+}
+.retry-btn:hover {
+  background-color: #0056b3;
+}

@@ -1,0 +1,90 @@
+/* file-conversion.css */
+body {
+    background-color: #e6ffe6; /* Same as dashboard */
+}
+.container {
+  width: 700px;
+  align-items: flex-start; /* Align to top for longer content */
+}
+h1 {
+  color: #28a745;
+}
+.form-group {
+  margin-bottom: 20px;
+  text-align: left;
+}
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+.form-group input[type='file'],
+.form-group select {
+  width: calc(100% - 22px);
+}
+.form-group button {
+  background-color: #007bff;
+}
+.form-group button:hover {
+  background-color: #0056b3;
+}
+
+.conversion-job {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 15px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  background-color: #f9f9f9;
+  font-size: 0.95em;
+}
+.conversion-job span {
+  flex: 1;
+  text-align: left;
+  margin-right: 15px;
+  word-break: break-all;
+}
+.conversion-job .status-badge {
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-weight: bold;
+  color: white;
+  min-width: 90px; /* Ensure badges have similar width */
+  text-align: center;
+}
+.conversion-job .status-processing {
+  background-color: #ffc107;
+}
+.conversion-job .status-completed {
+  background-color: #28a745;
+}
+.conversion-job .status-completed_with_errors {
+  background-color: #ff9800;
+}
+.conversion-job .status-failed {
+  background-color: #dc3545;
+}
+.conversion-job .job-actions button {
+  margin-left: 8px;
+  padding: 6px 12px;
+  font-size: 0.85em;
+}
+.conversion-job .job-actions button.download-btn {
+  background-color: #17a2b8;
+}
+.conversion-job .job-actions button.download-btn:hover {
+  background-color: #138496;
+}
+.conversion-job .job-actions button.error-btn {
+  background-color: #6c757d;
+}
+.conversion-job .job-actions button.error-btn:hover {
+  background-color: #5a6268;
+}
+.no-jobs {
+  color: #777;
+  margin-top: 20px;
+  text-align: center;
+}

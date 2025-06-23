@@ -1,0 +1,75 @@
+/* dashboard.css */
+body {
+    background-color: #e6ffe6; /* Greenish background for dashboard */
+}
+.container {
+  width: 550px;
+}
+h1 {
+  color: #28a745; /* Green header */
+}
+p {
+  text-align: left;
+}
+p strong {
+  color: #2c3e50;
+}
+.action-section {
+  margin-top: 35px;
+  border-top: 1px solid #eee;
+  padding-top: 25px;
+  text-align: left;
+}
+.action-section input[type='password'] {
+  width: calc(100% - 150px);
+  margin-right: 10px;
+}
+.action-section button {
+  vertical-align: middle;
+}
+.google-link-btn {
+  background-color: #4285f4;
+}
+.google-link-btn:hover {
+  background-color: #357ae8;
+}
+#unlinkGoogleBtn {
+  background-color: #ffc107;
+  color: black;
+}
+#unlinkGoogleBtn:hover {
+  background-color: #e0a800;
+}
+#jwtTokenDisplay {
+  background-color: #f0f2f5;
+  padding: 15px;
+  border-radius: 5px;
+  overflow-x: auto;
+  word-break: break-all;
+  margin-top: 15px;
+  text-align: left;
+  font-size: 0.9em;
+  color: #333;
+  white-space: pre-wrap;
+}
+.api-info {
+  margin-top: 35px;
+  border-top: 1px solid #eee;
+  padding-top: 25px;
+  font-size: 0.9em;
+  color: #666;
+  text-align: left;
+}
+.api-info pre {
+  background-color: #f0f2f5;
+  padding: 15px;
+  border-radius: 5px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin-top: 10px;
+  color: #333;
+}
+.api-info code {
+  font-family: 'Consolas', 'Monaco', monospace;
+}

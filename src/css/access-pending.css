@@ -1,0 +1,16 @@
+/* access-pending.css */
+body {
+    background-color: #fcf8e3; /* Light yellow background for warning */
+}
+.container {
+  width: 450px;
+}
+h1 {
+  color: #ffc107; /* warning yellow */
+}
+.home-btn {
+  background-color: #007bff;
+}
+.home-btn:hover {
+  background-color: #0056b3;
+}

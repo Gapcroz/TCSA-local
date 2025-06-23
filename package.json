@@ -4,8 +4,12 @@
   "description": "Minimal API for file conversion between xls ,xlsx ,csv and txt for specific file templates",
   "main": "index.js",
   "scripts": {
-    "test": "test",
-    "dev": "nodemon index.js"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev:backend": "nodemon index.js",
+    "build:frontend": "node esbuild.config.js build",
+    "dev:frontend": "node esbuild.config.js dev",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "start": "npm run build:frontend && node index.js"
   },
   "author": "",
   "license": "ISC",
@@ -26,6 +30,9 @@
     "passport-local": "^1.0.0"
   },
   "devDependencies": {
+    "concurrently": "^8.2.2",
+    "esbuild": "^0.23.0",
+    "fs-extra": "^11.2.0",
     "nodemon": "^3.1.10"
   }
 }

@@ -1,0 +1,71 @@
+/* login.css */
+body {
+    background-color: #f0f2f5;
+}
+.container {
+  width: 380px;
+}
+h1 {
+  color: #2c3e50;
+}
+.google-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #4285f4;
+  color: white;
+  padding: 12px 25px;
+  border-radius: 5px;
+  text-decoration: none;
+  font-size: 16px;
+  font-weight: bold;
+  transition: background-color 0.3s ease;
+  margin-bottom: 25px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.google-btn:hover {
+  background-color: #357ae8;
+}
+.google-icon {
+  margin-right: 12px;
+  width: 22px;
+  height: 22px;
+}
+.separator {
+  margin: 25px 0;
+  font-size: 0.9em;
+  color: #777;
+  position: relative;
+  text-align: center;
+}
+.separator::before,
+.separator::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 40%;
+  height: 1px;
+  background-color: #ddd;
+}
+.separator::before {
+  left: 0;
+}
+.separator::after {
+  right: 0;
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+.button-group button {
+  flex: 1;
+}
+#registerButton {
+  background-color: #28a745;
+}
+#registerButton:hover {
+  background-color: #218838;
+}

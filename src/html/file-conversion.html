@@ -1,0 +1,49 @@
+<!-- src/html/file-conversion.html -->
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Conversión de Archivos</title>
+    <link rel="stylesheet" href="../css/main.css" />
+    <link rel="stylesheet" href="../css/file-conversion.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Conversión de Archivos API</h1>
+
+      <div class="form-group">
+        <label for="fileInput">Seleccionar Archivo:</label>
+        <input type="file" id="fileInput" accept=".xls,.xlsx,.csv,.txt" />
+      </div>
+
+      <div class="form-group">
+        <label for="outputFormat">Formato de Salida:</label>
+        <select id="outputFormat">
+          <option value="">-- Seleccione un formato --</option>
+          <option value="xlsx">XLSX</option>
+          <option value="csv">CSV</option>
+          <option value="txt">TXT</option>
+        </select>
+      </div>
+
+      <button id="uploadButton">Subir y Convertir</button>
+      <p id="uploadMessage" class="message"></p>
+
+      <h2>Historial de Conversiones</h2>
+      <div id="conversionJobsList">
+        <p class="no-jobs">No hay trabajos de conversión aún.</p>
+      </div>
+
+      <div class="dashboard-nav">
+        <a href="/auth/dashboard" class="button">Volver al Dashboard</a>
+        <a href="/admin-dashboard" id="adminLink" class="admin-link hidden"
+          >Panel de Administración</a
+        >
+        <a href="/auth/logout" class="logout-btn">Cerrar Sesión</a>
+      </div>
+    </div>
+
+    <script type="module" src="../js/file-conversion.js"></script>
+  </body>
+</html>

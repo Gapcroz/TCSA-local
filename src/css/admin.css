@@ -1,0 +1,72 @@
+/* admin.css */
+body {
+    background-color: #f2f7fc; /* Bluish background for admin */
+}
+.container {
+  width: 800px;
+}
+h1 {
+  color: #007bff;
+}
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 25px;
+  text-align: left;
+}
+.users-table th,
+.users-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #ddd;
+}
+.users-table th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+  color: #555;
+}
+.users-table tr:hover {
+  background-color: #f5f5f5;
+}
+.users-table td select,
+.users-table td input[type='checkbox'] {
+  padding: 6px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  vertical-align: middle;
+}
+.users-table td label {
+    vertical-align: middle;
+    margin-left: 5px;
+}
+.users-table td button {
+  background-color: #007bff;
+  color: white;
+  padding: 8px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: background-color 0.3s ease;
+}
+.users-table td button:hover {
+  background-color: #0056b3;
+}
+.users-table td button.save-btn {
+  background-color: #28a745;
+}
+.users-table td button.save-btn:hover {
+  background-color: #218838;
+}
+.status-active {
+  color: #28a745;
+  font-weight: bold;
+}
+.status-inactive {
+  color: #dc3545;
+  font-weight: bold;
+}
+.no-users {
+  color: #777;
+  margin-top: 20px;
+  text-align: center;
+}

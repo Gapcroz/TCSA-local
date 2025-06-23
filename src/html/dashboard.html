@@ -1,0 +1,92 @@
+<!-- src/html/dashboard.html -->
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard de Usuario</title>
+    <link rel="stylesheet" href="../css/main.css" />
+    <link rel="stylesheet" href="../css/dashboard.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>¡Autenticación Exitosa!</h1>
+      <p>Bienvenido, <strong id="userName">Cargando...</strong>.</p>
+      <p>Tu estado de API: <strong id="apiAccessStatus">Cargando...</strong></p>
+      <p id="googleLinkedStatus">Google vinculado: Cargando...</p>
+      <p id="passwordSetStatus">Contraseña establecida: Cargando...</p>
+
+      <div class="action-section">
+        <h2>Gestión de Cuenta</h2>
+        <div id="passwordSection">
+          <h3>Añadir / Cambiar Contraseña</h3>
+          <input
+            type="password"
+            id="newPassword"
+            placeholder="Nueva Contraseña"
+          />
+          <button id="setPasswordBtn">Establecer Contraseña</button>
+          <p id="passwordMessage" class="message"></p>
+        </div>
+
+        <div id="googleSection" style="margin-top: 20px;">
+          <h3>Vincular Cuenta de Google</h3>
+          <button
+            id="linkGoogleBtn"
+            class="google-link-btn"
+            onclick="window.location.href='/auth/google?link=true'"
+          >
+            Vincular con Google
+          </button>
+          <button id="unlinkGoogleBtn" class="hidden" onclick="unlinkGoogle()">
+            Desvincular Google
+          </button>
+          <p id="googleMessage" class="message"></p>
+        </div>
+      </div>
+
+      <div class="action-section">
+        <h2>Acceso Programático (JWT)</h2>
+        <button id="getJwtBtn">Obtener JWT</button>
+        <p id="jwtMessage" class="message"></p>
+        <pre><code id="jwtTokenDisplay"></code></pre>
+      </div>
+
+      <div class="dashboard-nav">
+        <a href="/file-conversion" class="api-link">Ir a Conversión de Archivos</a>
+        <a href="/admin-dashboard" id="adminLink" class="admin-link hidden"
+          >Panel de Administración</a
+        >
+        <a href="/auth/logout" class="logout-btn">Cerrar Sesión</a>
+      </div>
+
+      <div class="api-info">
+        <h3>¿Cómo usar la API?</h3>
+        <p>
+          Si obtuviste un JWT, úsalo en el encabezado `Authorization: Bearer
+          &lt;token&gt;` para todas las solicitudes a la API.
+        </p>
+        <pre>
+          <code>
+            fetch('/api/files/upload', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer TU_JWT_AQUI`
+              },
+              body: formData
+            });
+          </code>
+        </pre>
+        <p>Para descargar, puedes visitar (después de obtener un `jobId`):</p>
+        <pre>
+          <code>
+            /api/files/:jobId/download
+            /api/files/:jobId/errors
+          </code>
+        </pre>
+      </div>
+    </div>
+
+    <script type="module" src="../js/dashboard.js"></script>
+  </body>
+</html>
