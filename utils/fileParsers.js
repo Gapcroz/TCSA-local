@@ -1,8 +1,32 @@
 // utils/fileParsers.js
-// Placeholder para las funciones de parsing de archivos, se debe ajustar a las necesidades cada tipo de archivo
 const ExcelJS = require('exceljs');
 const csvParser = require('csv-parser');
 const { Readable } = require('stream');
+
+/**
+ * Generates a filename based on the specified convention.
+ * File Name Convention: BMDDHHMM.MMYY
+ * BM: Identifies the type of file (BM, RM, or FG)
+ * DD: Day
+ * HH: Hour
+ * MM: Minute
+ * MM: Month
+ * YY: Last two digits of the current year
+ * Example: Filename BM031113.0621 > BOM file generated on June 3rd, 2021 at 11:13 hrs
+ *
+ * @param {string} fileType - The type of file (e.g., "BM", "RM", "FG").
+ * @param {Date} [date=new Date()] - The date and time to use for the filename. Defaults to the current date and time.
+ * @returns {string} The generated filename.
+ */
+function generateFilename(fileType, date = new Date()) {
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+  const year = String(date.getFullYear()).slice(-2);
+
+  return `${fileType}${day}${hours}${minutes}.${month}${year}`;
+}
 
 async function parseXLSX(buffer) {
   const workbook = new ExcelJS.Workbook();
@@ -75,9 +99,10 @@ async function parseTXT(buffer) {
 
   return { Sheet1: data }; // Envuelve en un objeto para consistencia
 }
-
+//TODO: REEMPLAZAR CON IMPLEMENTACION ajustada al formato esperado en funciones parseXLSX, parseCSV y parseTXT
 module.exports = {
   parseXLSX,
   parseCSV,
   parseTXT,
+  generateFilename, // Export the new function
 };
