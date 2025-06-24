@@ -20,10 +20,19 @@
       <div class="form-group">
         <label for="outputFormat">Formato de Salida:</label>
         <select id="outputFormat">
-          <option value="">-- Seleccione un formato --</option>
-          <option value="xlsx">XLSX</option>
-          <option value="csv">CSV</option>
-          <option value="txt">TXT</option>
+          <!-- Only 'txt' output is supported now -->
+          <option value="txt">Standardized TXT</option>
+        </select>
+      </div>
+
+      <!-- Document Type selection for TXT files (still relevant for input TXT) -->
+      <div class="form-group" id="documentTypeGroup" style="display: none;">
+        <label for="documentType">Tipo de Documento (Para TXT):</label>
+        <select id="documentType">
+          <option value="">-- Seleccione el tipo --</option>
+          <option value="finishedProduct">Finished Product</option>
+          <option value="rawMaterial">Raw Material</moption>
+          <option value="billOfMaterials">Bill of Materials</option>
         </select>
       </div>
 

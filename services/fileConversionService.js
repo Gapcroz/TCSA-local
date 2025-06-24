@@ -1,21 +1,35 @@
-// services/fileConversionService.js
 const path = require('path');
-const fs = require('fs/promises'); // Para operaciones asíncronas con archivos
-const ExcelJS = require('exceljs'); // exceljs para XLS/XLSX
-const csvParser = require('csv-parser'); // csv-parser para CSV
-const { Readable } = require('stream'); // Para usar csv-parser con buffers/strings
+const fs = require('fs/promises');
+const ExcelJS = require('exceljs'); // Still needed for XLSX input
+const csvParser = require('csv-parser'); // Still needed for CSV input
+const { Readable } = require('stream'); // Still needed for CSV input
 
-// Importar utilidades
+// Import utilities
 const { parseXLSX, parseCSV, parseTXT } = require('../utils/fileParsers');
-const { validateDataIntegrity } = require('../utils/validationUtils'); // A crear
+const { validateDataIntegrity, applyBusinessValidations } = require('../utils/validationUtils');
+const { applyTransformations } = require('../utils/transformationUtils');
+// Import schema specs to define output structure for standardized TXT
+const { finishedProductSchemaSpec, rawMaterialSchemaSpec, billOfMaterialsSchemaSpec } = require('../data/dataSchemas');
 
-// Servicio que encapsula la lógica de conversión
+// Service that encapsulates file conversion logic
 const processFileForConversion = async (fileBuffer, originalName, outputFormat, conversionOptions, userId) => {
-  let parsedData;
+  let parsedData; // Will be { Sheet1: [records] }
   const fileExtension = path.extname(originalName).toLowerCase();
   let errorReport = [];
 
-  // Paso 1: Parsing
+  const { documentType } = conversionOptions; // Expect documentType here
+
+  // Ensure documentType is provided for TXT files
+  if (fileExtension === '.txt' && !documentType) {
+    throw new Error('Document type is required for TXT file parsing.');
+  }
+
+  // Ensure outputFormat is 'txt' as per requirements
+  if (outputFormat !== 'txt') {
+    throw new Error(`Only 'txt' output format is supported. Received: '${outputFormat}'.`);
+  }
+
+  // Step 1: Parsing
   switch (fileExtension) {
     case '.xls':
     case '.xlsx':
@@ -25,49 +39,42 @@ const processFileForConversion = async (fileBuffer, originalName, outputFormat, 
       parsedData = await parseCSV(fileBuffer);
       break;
     case '.txt':
-      parsedData = await parseTXT(fileBuffer);
+      parsedData = await parseTXT(fileBuffer, documentType); // Pass documentType
       break;
     default:
-      throw new Error('Formato de archivo no soportado.');
+      throw new Error('Unsupported input file format.');
   }
 
-  // console.log('Datos parseados:', parsedData); // Para depuración
+  // Step 2: Transformation (Units and Trade Codes)
+  // This will apply the unit conversions and HTS/ECCN code lookups to the parsed data (plain objects).
+  let transformedData = applyTransformations(parsedData, documentType);
 
-  // Paso 2: Transformación (esto sería un módulo más complejo en el futuro)
-  // Aquí aplicarías la lógica de estandarización de unidades, HTS/ECCN, etc.
-  let transformedData = parsedData; // Placeholder
-  // transformedData = applyTransformations(parsedData, conversionOptions);
-  // console.log('Datos transformados:', transformedData); // Para depuración
-
-  // Paso 3: Validación
-  const validationResult = validateDataIntegrity(transformedData);
-  if (!validationResult.isValid) {
-    errorReport = validationResult.errors;
-    // Decidir si continuar con la conversión o fallar
-    // Por ahora, continuaremos pero guardaremos el reporte de errores
+  // Step 3: Validation (Data Integrity and Business Rules)
+  // General structural validation + specific business rules using Mongoose models.
+  const integrityResult = validateDataIntegrity(transformedData);
+  if (!integrityResult.isValid) {
+    errorReport.push(...integrityResult.errors);
   }
 
-  // Paso 4: Generación del archivo de salida
-  const outputFileName = `${path.parse(originalName).name}-converted.${outputFormat}`;
-  const outputFilePath = path.join(__dirname, '..', 'temp_converted_files', outputFileName); // Directorio temporal
-  // Asegúrate de que el directorio temporal exista
+  // Only apply business validations if integrity is good or if you want to collect all errors
+  if (integrityResult.isValid) {
+      const businessValidationResult = await applyBusinessValidations(transformedData, documentType);
+      if (!businessValidationResult.isValid) {
+          errorReport.push(...businessValidationResult.errors);
+      }
+  }
+
+
+  // Step 4: Generation of the standardized plain text file
+  const outputFileName = `${path.parse(originalName).name}-converted.txt`;
+  const outputFilePath = path.join(__dirname, '..', 'temp_converted_files', outputFileName);
+  // Ensure the temporary directory exists
   await fs.mkdir(path.dirname(outputFilePath), { recursive: true });
 
-  switch (outputFormat) {
-    case 'csv':
-      // Ejemplo: Convertir a CSV (usando un enfoque simple para JSON a CSV)
-      await writeToCSV(transformedData, outputFilePath);
-      break;
-    case 'xlsx':
-      // Ejemplo: Convertir a XLSX
-      await writeToXLSX(transformedData, outputFilePath);
-      break;
-    // Añadir más formatos de salida según sea necesario
-    default:
-      throw new Error(`Formato de salida '${outputFormat}' no soportado.`);
-  }
+  await writeToStandardizedTXT(transformedData, outputFilePath, documentType);
 
-  // Simulación de generación de reporte de errores
+
+  // Generate error report if any errors occurred
   let errorReportPath = null;
   if (errorReport.length > 0) {
     const errorReportFileName = `${path.parse(originalName).name}-errors.json`;
@@ -83,42 +90,88 @@ const processFileForConversion = async (fileBuffer, originalName, outputFormat, 
   };
 };
 
-// --- Funciones auxiliares para escribir archivos (simples) ---
-async function writeToCSV(data, filePath) {
-  // Asumiendo que `data` es un objeto { Sheet1: [{ col1: val1 }, { col2: val2 }] }
-  // O un array de objetos si no hay sheets.
-  const firstSheetName = Object.keys(data)[0];
-  const rows = data[firstSheetName];
 
-  if (!rows || rows.length === 0) {
-    await fs.writeFile(filePath, ''); // Crear archivo CSV vacío
+/**
+ * Writes data to a standardized plain text file based on the schema.
+ * Each record is a line, with fields at specific positions.
+ *
+ * @param {Object} data - The processed data, typically { Sheet1: [records] } (plain JS objects).
+ * @param {string} filePath - The path where the file should be written.
+ * @param {string} documentType - The type of document to determine the schema.
+ */
+async function writeToStandardizedTXT(data, filePath, documentType) {
+  const records = data.Sheet1;
+  if (!records || records.length === 0) {
+    await fs.writeFile(filePath, '');
     return;
   }
 
-  const header = Object.keys(rows[0]).join(',');
-  const csvRows = rows.map((row) => Object.values(row).join(','));
-  const csvContent = [header, ...csvRows].join('\n');
-  await fs.writeFile(filePath, csvContent);
-}
-
-async function writeToXLSX(data, filePath) {
-  const workbook = new ExcelJS.Workbook();
-
-  for (const sheetName in data) {
-    if (Object.hasOwnProperty.call(data, sheetName)) {
-      const worksheet = workbook.addWorksheet(sheetName);
-      worksheet.columns = Object.keys(data[sheetName][0] || {}).map((key) => ({
-        header: key,
-        key: key,
-        width: 20,
-      }));
-      worksheet.addRows(data[sheetName]);
-    }
+  let schemaSpec;
+  switch (documentType) {
+    case 'finishedProduct':
+      schemaSpec = finishedProductSchemaSpec;
+      break;
+    case 'rawMaterial':
+      schemaSpec = rawMaterialSchemaSpec;
+      break;
+    case 'billOfMaterials':
+      schemaSpec = billOfMaterialsSchemaSpec;
+      break;
+    default:
+      throw new Error(`Unknown document type for TXT writing: ${documentType}`);
   }
 
-  await workbook.xlsx.writeFile(filePath);
+  const lines = records.map((record) => {
+    let line = '';
+    for (const field of schemaSpec) {
+      let value = record[field.dataElement];
+      let formattedValue = '';
+
+      if (value === null || value === undefined) {
+        formattedValue = '';
+      } else {
+        // Ensure values are in the correct format for padding
+        if (field.type === 'N') {
+            // Numbers need specific formatting for decimals based on 9(08).9(08) type formats
+            // Assuming format like '9(08).9(08)' means 8 digits before and 8 after decimal.
+            const parts = field.format.match(/9\((\d+)\)\.?9?\(?(\d+)?\)?/);
+            let integerLength = parseInt(parts[1], 10);
+            let decimalLength = parts[2] ? parseInt(parts[2], 10) : 0;
+
+            let num = parseFloat(value);
+            if (isNaN(num)) {
+                formattedValue = ''; // Handle non-numeric gracefully
+            } else {
+                formattedValue = num.toFixed(decimalLength);
+                // Ensure integer part is padded correctly for total length
+                const [intPart, decPart] = formattedValue.split('.');
+                const paddedIntPart = intPart.padStart(integerLength, '0');
+                formattedValue = paddedIntPart;
+                if (decimalLength > 0) {
+                    formattedValue += '.' + (decPart || '').padEnd(decimalLength, '0');
+                }
+            }
+
+        } else if (field.type === 'D') {
+            // Dates should already be YYYYMMDD string from transformationUtils
+            formattedValue = String(value); // Should be YYYYMMDD
+        } else {
+            // Alphanumeric, ensure it's a string
+            formattedValue = String(value);
+        }
+      }
+
+      // Pad or truncate to the exact specified length
+      formattedValue = formattedValue.padEnd(field.length, ' ');
+      formattedValue = formattedValue.substring(0, field.length); // Truncate if too long
+
+      line += formattedValue;
+    }
+    return line;
+  });
+
+  await fs.writeFile(filePath, lines.join('\n'));
 }
-// --- Fin funciones auxiliares ---
 
 module.exports = {
   processFileForConversion,

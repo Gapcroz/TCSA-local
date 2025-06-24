@@ -1,0 +1,238 @@
+const mongoose = require("mongoose");
+
+const createSchemaField = (fieldSpec) => {
+  /* Same helper function as above */
+  let type;
+  let required = fieldSpec.requirement === "M";
+
+  switch (fieldSpec.type) {
+    case "A": // Alphanumeric
+      type = String;
+      break;
+    case "N": // Numeric
+      type = Number;
+      break;
+    case "D": // Date (YYYYMMDD)
+      type = Date;
+      break;
+    default:
+      type = String;
+  }
+
+  const schemaField = { type: type };
+
+  if (required) {
+    schemaField.required = [true, `${fieldSpec.dataElement} is required.`];
+  } else if (fieldSpec.requirement === "A") {
+    schemaField.required = false;
+  }
+
+  if (Array.isArray(fieldSpec.possibleValues)) {
+    const enumValues = fieldSpec.possibleValues.map((val) => {
+      const parts = val.split(" = ");
+      return parts.length > 1 ? parts[0] : val;
+    });
+    schemaField.enum = enumValues;
+  }
+
+  return schemaField;
+};
+
+const rawMaterialSchemaSpec = [
+  {
+    item: 1,
+    dataElement: "Part Number",
+    type: "A",
+    length: 30,
+    position: "01-30",
+    format: "X(30)",
+    possibleValues: null,
+    requirement: "M",
+    description: "A Client defined code for the raw material or component",
+    start: 0,
+    end: 29,
+  },
+  {
+    item: 2,
+    dataElement: "Description",
+    type: "A",
+    length: 60,
+    position: "31-90",
+    format: "X(60)",
+    possibleValues: null,
+    requirement: "M",
+    description: "Line item description",
+    start: 30,
+    end: 89,
+  },
+  {
+    item: 3,
+    dataElement: "Unit Weight Lb.",
+    type: "N",
+    length: 17,
+    position: "91-107",
+    format: "9(08).9(08)",
+    possibleValues: null,
+    requirement: "M",
+    description: "Line item weight in pounds (LBS)",
+    start: 90,
+    end: 106,
+  },
+  {
+    item: 4,
+    dataElement: "Unit Cost (UDS)",
+    type: "N",
+    length: 17,
+    position: "108-124",
+    format: "9(08).9(08)",
+    possibleValues: null,
+    requirement: "M",
+    description: "Line item unit cost",
+    start: 107,
+    end: 123,
+  },
+  {
+    item: 5,
+    dataElement: "Unit of measure",
+    type: "A",
+    length: 3,
+    position: "125-127",
+    format: "X(03)",
+    possibleValues: null,
+    requirement: "M",
+    description: "Unit of measure",
+    start: 124,
+    end: 126,
+  },
+  {
+    item: 6,
+    dataElement: "Country of origin",
+    type: "A",
+    length: 2,
+    position: "128-129",
+    format: "X(02)",
+    possibleValues: null,
+    requirement: "M",
+    description: "Line item origin",
+    start: 127,
+    end: 128,
+  },
+  {
+    item: 7,
+    dataElement: "Importation HTS Code",
+    type: "A",
+    length: 12,
+    position: "130-141",
+    format: "X(12)",
+    possibleValues: null,
+    requirement: "M",
+    description:
+      "US HTS Code for merchandise to be imported into the US (Customs purposes)",
+    start: 129,
+    end: 140,
+  },
+  {
+    item: 8,
+    dataElement: "Exportation HTS Code",
+    type: "A",
+    length: 12,
+    position: "142-153",
+    format: "X(12)",
+    possibleValues: null,
+    requirement: "M",
+    description:
+      "US HTS Code for merchandise to be exported from the US (Customs purposes)",
+    start: 141,
+    end: 152,
+  },
+  {
+    item: 9,
+    dataElement: "ECCN",
+    type: "A",
+    length: 10,
+    position: "154-163",
+    format: "X(10)",
+    possibleValues: null,
+    requirement: "M",
+    description: "Export Control Classification Number",
+    start: 153,
+    end: 162,
+  },
+  {
+    item: 10,
+    dataElement: "Filler",
+    type: "A",
+    length: 20,
+    position: "164-183",
+    format: "X(20)",
+    possibleValues: null,
+    requirement: "O",
+    description: "Additional item's information",
+    start: 163,
+    end: 182,
+  },
+  {
+    item: 11,
+    dataElement: "License Number (LCN)",
+    type: "A",
+    length: 20,
+    position: "184-203",
+    format: "X(20)",
+    possibleValues: null,
+    requirement: "A",
+    description: "When applies (belongs to ECCN)",
+    start: 183,
+    end: 202,
+  },
+  {
+    item: 12,
+    dataElement: "License Exception",
+    type: "A",
+    length: 20,
+    position: "204-223",
+    format: "X(20)",
+    possibleValues: null,
+    requirement: "A",
+    description: "When applies (belongs to ECCN)",
+    start: 203,
+    end: 222,
+  },
+  {
+    item: 13,
+    dataElement: "License Expiration date",
+    type: "D",
+    length: 8,
+    position: "224-231",
+    format: "YYYYMMDD",
+    possibleValues: "i.e. 20110131 = Jan 31st, 2011",
+    requirement: "A",
+    description: "When applies (belongs to ECCN)",
+    start: 223,
+    end: 230,
+  },
+  {
+    item: 14,
+    dataElement: "USML (ITAR)",
+    type: "A",
+    length: 20,
+    position: "232-251",
+    format: "X(20)",
+    possibleValues: null,
+    requirement: "A",
+    description:
+      "US Military License (When the material is classified for the US Gov as a Military good)",
+    start: 231,
+    end: 250,
+  },
+];
+
+const rawMaterialMongooseSchema = new mongoose.Schema({});
+rawMaterialSchemaSpec.forEach((field) => {
+  rawMaterialMongooseSchema.add({
+    [field.dataElement]: createSchemaField(field),
+  });
+});
+
+rawMaterialMongooseSchema.statics.getSchemaSpec = () => rawMaterialSchemaSpec;
+
+module.exports = mongoose.model("RawMaterial", rawMaterialMongooseSchema);
