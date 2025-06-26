@@ -1,3 +1,4 @@
+// index.js
 // 1. Cargar variables de entorno - ABSOLUTELY MUST BE THE FIRST EXECUTABLE LINE
 require('dotenv').config();
 
@@ -24,6 +25,11 @@ const { authenticateRequest, ensureAdmin } = require('./middleware/authMiddlewar
 
 // Import connection to DB utility
 const connectDB = require('./config/db');
+
+// NEW: Import cron scheduler and automated processing service for startup
+const { startAutomatedFileProcessor } = require('./config/cronScheduler');
+const { ensureDirectoriesExist } = require('./services/automatedProcessingService'); // For initial directory setup
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -74,6 +80,21 @@ app.use(passport.session()); // Enables Passport to use Express sessions for per
 // These functions define how Passport will authenticate users (e.g., Google, Local, JWT)
 setupPassport(passport); // Set up Google OAuth and Local strategies
 setupPassportJwt(passport); // Set up JWT strategy
+
+// --- NEW: Initialize Automated File Processing ---
+// Ensure the necessary directories for automated processing exist ONCE on application start
+ensureDirectoriesExist()
+  .then(() => {
+    console.log('[App Startup] All necessary file directories are ensured.');
+    // Start the cron job AFTER directories are confirmed ready
+    const cronSchedule = process.env.AUTOMATED_FILE_PROCESSOR_CRON_SCHEDULE || '*/5 * * * *'; // Default to every 5 minutes
+    startAutomatedFileProcessor(cronSchedule);
+  })
+  .catch((err) => {
+    console.error('[App Startup] Failed to ensure automated processing directories or start cron job:', err);
+    // Depending on criticality, you might want to exit the process here: process.exit(1);
+  });
+
 
 // --- Frontend Serving (Bundled by esbuild) ---
 // Serve bundled static files from the 'dist' directory.
