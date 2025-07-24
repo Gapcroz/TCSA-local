@@ -11,8 +11,6 @@ const createSchemaField = (fieldSpec) => {
       break;
     case "N": // Numeric
       type = Number;
-      // Handle the 9(08).9(08) format for decimals
-      // For mongoose, it's just a Number. Formatting will happen on output.
       break;
     case "D": // Date (YYYYMMDD)
       type = Date;
@@ -33,11 +31,11 @@ const createSchemaField = (fieldSpec) => {
 
   // Add enum for possible values if applicable
   if (Array.isArray(fieldSpec.possibleValues)) {
-    // For values like "A = Ambient", store just "A" in DB if desired, or store full string.
-    // For now, let's store the full string if it's "Code = Description"
+    // For values like "A = Ambient", store just "A" in DB.
+    // Use a regex to handle inconsistent spacing around the "=".
     const enumValues = fieldSpec.possibleValues.map((val) => {
-      const parts = val.split(" = ");
-      return parts.length > 1 ? parts[0] : val; // Store 'A' from 'A = Ambient'
+      const parts = val.split(/\s*=\s*/); // Robust split
+      return parts[0]; // Always take the first part as the code
     });
     schemaField.enum = enumValues;
   }
@@ -112,7 +110,7 @@ const finishedProductSchemaSpec = [
     description: "Blank spaces",
     start: 124,
     end: 140,
-  }, // Corrected type to 'A' based on format
+  },
   {
     item: 6,
     dataElement: "Added Value (USD)",

@@ -1,229 +1,134 @@
-// Import Mongoose models and their schema specs
-const { FinishedProduct, RawMaterial, BillOfMaterials, finishedProductSchemaSpec, rawMaterialSchemaSpec, billOfMaterialsSchemaSpec } = require('../data/dataSchemas');
+const { getRegistryEntry } = require("../data/documentTypeRegistry");
 
 /**
- * Performs general data integrity validations (e.g., empty sheets).
- * @param {Object} data - The parsed data, typically { Sheet1: [records] }.
- * @returns {{isValid: boolean, errors: Array<Object>}} Validation result.
+ * Validates the integrity of parsed data against its schema specification.
+ * Checks for mandatory fields, field length, and valid enum values.
+ * @param {Object} data - The parsed data object, e.g., { Sheet1: [records] }.
+ * @param {string} documentType - The internal name of the document type.
+ * @returns {{isValid: boolean, errors: Array<Object>}}
  */
-function validateDataIntegrity(data) {
+const validateDataIntegrity = (data, documentType) => {
+  // Get the correct schema spec from the central registry.
+  const { schemaSpec } = getRegistryEntry(documentType);
   const errors = [];
-  let isValid = true;
+  const records = data.Sheet1;
 
-  for (const sheetName in data) {
-    if (Object.hasOwnProperty.call(data, sheetName)) {
-      const records = data[sheetName];
-
-      if (!records || records.length === 0) {
-        errors.push({
-          type: 'empty_sheet',
-          message: `Sheet "${sheetName}" is empty or contains no data.`,
-          sheet: sheetName,
-        });
-        isValid = false;
-        continue;
-      }
-
-      records.forEach((row, rowIndex) => {
-        if (Object.keys(row).length === 0) {
-          errors.push({
-            type: 'empty_row',
-            message: `Row ${rowIndex + 1} in sheet "${sheetName}" is empty.`,
-            sheet: sheetName,
-            row: rowIndex + 1,
-          });
-          isValid = false;
-        }
-      });
-    }
-  }
-  return { isValid, errors };
-}
-
-/**
- * Applies business-specific validations using Mongoose models and custom rules.
- *
- * @param {Object} data - The parsed and potentially transformed data (plain JS objects).
- * @param {string} documentType - The type of document.
- * @returns {{isValid: boolean, errors: Array<Object>}} Validation result.
- */
-async function applyBusinessValidations(data, documentType) {
-  const errors = [];
-  let isValid = true;
-
-  let Model;
-  let schemaSpec;
-  switch (documentType) {
-    case 'finishedProduct':
-      Model = FinishedProduct;
-      schemaSpec = finishedProductSchemaSpec;
-      break;
-    case 'rawMaterial':
-      Model = RawMaterial;
-      schemaSpec = rawMaterialSchemaSpec;
-      break;
-    case 'billOfMaterials':
-      Model = BillOfMaterials;
-      schemaSpec = billOfMaterialsSchemaSpec;
-      break;
-    default:
-      errors.push({
-        type: 'schema_error',
-        message: `Unknown document type '${documentType}' for business validation.`,
-      });
-      return { isValid: false, errors };
-  }
-
-  const records = data.Sheet1; // Assuming parsed data is always in 'Sheet1' for simplicity
-
-  for (let rowIndex = 0; rowIndex < records.length; rowIndex++) {
-    const record = records[rowIndex];
-    const rowIdentifier = `Row ${rowIndex + 1}`;
-
-    // 1. Mongoose Model Validation (handles `required` fields and basic type casting)
-    const doc = new Model(record);
-    try {
-      await doc.validate();
-    } catch (mongooseValidationError) {
-      isValid = false;
-      for (const fieldName in mongooseValidationError.errors) {
-        const err = mongooseValidationError.errors[fieldName];
-        errors.push({
-          type: 'mongoose_validation_error',
-          message: `${fieldName}: ${err.message}`,
-          documentType,
-          row: rowIndex + 1,
-          field: fieldName,
-          reason: err.kind,
-        });
-      }
-    }
-
-    // 2. Custom Business Rule Validations (for 'A' fields and cross-field logic)
-    schemaSpec.forEach((field) => {
-      const fieldValue = record[field.dataElement];
-      const fieldName = field.dataElement;
-
-      // "If Applies" (A) requirement checks
-      if (field.requirement === 'A' && (fieldValue === null || fieldValue === undefined || String(fieldValue).trim() === '')) {
-        // NAFTA related fields for Finished Product
-        if (documentType === 'finishedProduct' && (
-            fieldName === 'Preference Criterion' ||
-            fieldName === 'Producer' ||
-            fieldName === 'Net Cost' ||
-            fieldName === 'Period (From)' ||
-            fieldName === 'Period (To)'
-        )) {
-            const naftaApplicable = record['NAFTA'] && String(record['NAFTA']).toUpperCase().trim() === 'Y';
-            if (naftaApplicable) {
-                errors.push({
-                    type: 'missing_conditional_field',
-                    message: `${fieldName} is mandatory when NAFTA applies but is missing or empty.`,
-                    documentType,
-                    row: rowIndex + 1,
-                    field: fieldName,
-                });
-                isValid = false;
-            }
-        }
-        // ECCN related fields for Raw Material
-        if (documentType === 'rawMaterial' &&
-            (fieldName === 'License Number (LCN)' || fieldName === 'License Exception' || fieldName === 'License Expiration date')
-        ) {
-            const eccnPresent = record['ECCN'] && String(record['ECCN']).trim() !== '';
-            if (eccnPresent && String(record['ECCN']).toUpperCase().trim() !== 'EAR99') {
-                if (String(fieldValue).trim() === '') { // Only error if the field is actually empty/missing
-                    errors.push({
-                        type: 'missing_conditional_field',
-                        message: `${fieldName} is required for ECCN '${record['ECCN']}' (if not EAR99) but is missing.`,
-                        documentType,
-                        row: rowIndex + 1,
-                        field: fieldName,
-                    });
-                    isValid = false;
-                }
-            }
-        }
-        // FDA related fields for Finished Product
-        if (documentType === 'finishedProduct' && fieldName.startsWith('FDA')) {
-            const fdaProductCodePresent = record['FDA Product Code'] && String(record['FDA Product Code']).trim() !== '';
-            // Example: If FDA Product Code is present, then FDA Storage is required.
-            if (fieldName === 'FDA Storage' && fdaProductCodePresent && String(fieldValue).trim() === '') {
-                errors.push({
-                    type: 'missing_conditional_field',
-                    message: `${fieldName} is required when FDA Product Code is present but is missing.`,
-                    documentType,
-                    row: rowIndex + 1,
-                    field: fieldName,
-                });
-                isValid = false;
-            }
-            // Add more specific FDA rules here
-        }
-      }
-
-      // Format-specific checks that Mongoose might not catch (e.g., date string exact format YYYYMMDD before casting to Date)
-      if (field.type === 'D' && fieldValue && typeof fieldValue === 'string') {
-          // If the parser returned a string (e.g. from CSV/XLSX) and it's not a Date object yet
-          if (!/^\d{8}$/.test(fieldValue)) {
-              errors.push({
-                  type: 'invalid_format',
-                  message: `${fieldName} must be in YYYYMMDD format. Found: '${fieldValue}'`,
-                  documentType,
-                  row: rowIndex + 1,
-                  field: fieldName,
-              });
-              isValid = false;
-          }
-      }
-
-      // Enum possible values check (Mongoose handles enum for schema, but extra check if data was modified or not cast)
-      if (Array.isArray(field.possibleValues) && fieldValue !== null && fieldValue !== undefined && String(fieldValue).trim() !== '') {
-        const acceptedValues = field.possibleValues.map(val => {
-            const parts = val.split(' = ');
-            return (parts.length > 1 ? parts[0] : val).toUpperCase().trim();
-        });
-        const currentVal = String(fieldValue).toUpperCase().trim();
-
-        if (!acceptedValues.includes(currentVal)) {
-            errors.push({
-                type: 'invalid_enum_value',
-                message: `${fieldName} has an invalid value: '${fieldValue}'. Accepted values: ${acceptedValues.join(', ')}.`,
-                documentType,
-                row: rowIndex + 1,
-                field: fieldName,
-            });
-            isValid = false;
-        }
-      }
-
+  if (!records || records.length === 0) {
+    errors.push({
+      type: "Integrity Error",
+      message: "No records found to validate.",
     });
-
-    // Cross-record/document level validations (requires external data if applicable)
-    // E.g., "Unit of Measure has to be the same unit of measure used in the Raw Matl catalog" for BOM
-    // This would require fetching a RawMaterial record by 'Component Part Number'.
-    // For now, this is a placeholder. You'd need to query the RawMaterial model here.
-    // if (documentType === 'billOfMaterials') {
-    //   const componentPartNumber = record['Component Part Number'];
-    //   const bomUOM = record['Unit of Measure'];
-    //   if (componentPartNumber && bomUOM) {
-    //     const rm = await RawMaterial.findOne({ 'Part Number': componentPartNumber });
-    //     if (rm && rm['Unit of measure'] !== bomUOM) {
-    //       errors.push({
-    //         type: 'uom_mismatch_bom_rm',
-    //         message: `UOM for BOM Component '${componentPartNumber}' (${bomUOM}) does not match Raw Material UOM (${rm['Unit of measure']}).`,
-    //         documentType,
-    //         row: rowIndex + 1,
-    //         field: 'Unit of Measure',
-    //       });
-    //       isValid = false;
-    //     }
-    //   }
-    // }
+    return { isValid: false, errors };
   }
 
-  return { isValid, errors };
-}
+  records.forEach((record, recordIndex) => {
+    const rowNum = recordIndex + 2; // Assuming row 1 is header for user-friendly error messages
+
+    schemaSpec.forEach((fieldSpec) => {
+      const value = record[fieldSpec.dataElement];
+      const fieldName = fieldSpec.dataElement;
+
+      // Check for mandatory fields (M)
+      if (
+        fieldSpec.requirement === "M" &&
+        (value === null || value === undefined || String(value).trim() === "")
+      ) {
+        errors.push({
+          type: "Integrity Error",
+          message: `Row ${rowNum}: Mandatory field "${fieldName}" is missing or empty.`,
+          field: fieldName,
+          row: rowNum,
+        });
+      }
+
+      // Correctly validate against enum CODES, not full descriptions.
+      if (
+        Array.isArray(fieldSpec.possibleValues) &&
+        value !== null &&
+        value !== undefined &&
+        String(value).trim() !== ""
+      ) {
+        // Extract just the codes (e.g., 'P', 'S') from the spec.
+        const enumCodes = fieldSpec.possibleValues.map(
+          (val) => val.split(/\s*=\s*/)[0]
+        );
+        // Check if the record's value is included in the list of codes.
+        if (!enumCodes.includes(String(value).trim())) {
+          errors.push({
+            type: "Integrity Error",
+            message: `Row ${rowNum}: Field "${fieldName}" has an invalid value "${value}". Expected one of: ${enumCodes.join(
+              ", "
+            )}`,
+            field: fieldName,
+            row: rowNum,
+            value: value,
+            expected: enumCodes, // The error report now shows the correct expected codes.
+          });
+        }
+      }
+    });
+  });
+
+  return { isValid: errors.length === 0, errors };
+};
+
+/**
+ * Applies complex, cross-field, or database-dependent business rules.
+ * @param {Object} data - The parsed data object.
+ * @param {string} documentType - The internal name of the document type.
+ * @returns {Promise<{isValid: boolean, errors: Array<Object>}>}
+ */
+const applyBusinessValidations = async (data, documentType) => {
+  // Get the schema from the central registry to ensure consistency.
+  const { schemaSpec } = getRegistryEntry(documentType);
+  const errors = [];
+  const records = data.Sheet1;
+
+  if (!records || records.length === 0) {
+    return { isValid: true, errors: [] }; // No records to validate
+  }
+
+  // This is where you would implement complex, document-specific business rules.
+  if (documentType === "finishedProduct") {
+    records.forEach((record, recordIndex) => {
+      const rowNum = recordIndex + 2; // Assuming row 1 is header
+      const fdaMarker = record["FDA Marker"];
+      const fdaProductCode = record["FDA Product Code"];
+
+      if (
+        fdaMarker === "FD2" &&
+        (fdaProductCode === null || String(fdaProductCode).trim() === "")
+      ) {
+        errors.push({
+          type: "Business Rule Violation",
+          message: `Row ${rowNum}: "FDA Product Code" is mandatory when "FDA Marker" is "FD2".`,
+          field: "FDA Product Code",
+          row: rowNum,
+        });
+      }
+
+      const nafta = record["NAFTA"];
+      const preferenceCriterion = record["Preference Criterion"];
+      if (
+        nafta === "Y" &&
+        (preferenceCriterion === null ||
+          String(preferenceCriterion).trim() === "")
+      ) {
+        errors.push({
+          type: "Business Rule Violation",
+          message: `Row ${rowNum}: "Preference Criterion" is mandatory when "NAFTA" is "Y".`,
+          field: "Preference Criterion",
+          row: rowNum,
+        });
+      }
+      // Add other NAFTA-related business rules here...
+    });
+  }
+
+  // Add other `if (documentType === ...)` blocks for other types as needed.
+
+  return { isValid: errors.length === 0, errors };
+};
 
 module.exports = {
   validateDataIntegrity,

@@ -1,7 +1,7 @@
 // /data/dataSchemas.js
 const FinishedProduct = require('../models/FinishedProduct');
 const RawMaterial = require('../models/RawMaterial');
-const BillOfMaterials = require('../models/BillOfMaterials');
+const BillOfMaterials = require('../models/BOM');
 
 module.exports = {
   FinishedProduct,

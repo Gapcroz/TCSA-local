@@ -1,29 +1,15 @@
+// utils/fileParsers.js
 const ExcelJS = require("exceljs");
 const csvParser = require("csv-parser");
 const { Readable } = require("stream");
-// Import the models and their schema specs
-const {
-  FinishedProduct,
-  RawMaterial,
-  BillOfMaterials,
-  finishedProductSchemaSpec,
-  rawMaterialSchemaSpec,
-  billOfMaterialsSchemaSpec,
-} = require("../data/dataSchemas");
+// Import the registry to get schema information
+const { getRegistryEntry } = require("../data/documentTypeRegistry");
 
 /**
  * Generates a filename based on the specified convention.
- * File Name Convention: BMDDHHMM.MMYY
- * BM: Identifies the type of file (BM, RM, or FG)
- * DD: Day
- * HH: Hour
- * MM: Minute
- * MM: Month
- * YY: Last two digits of the current year
- * Example: Filename BM031113.0621 > BOM file generated on June 3rd, 2021 at 11:13 hrs
- *
- * @param {string} fileType - The type of file (e.g., "BM", "RM", "FG").
- * @param {Date} [date=new Date()] - The date and time to use for the filename. Defaults to the current date and time.
+ * Convention: [TYPE]DDHHMM.MMYY (e.g., BM031113.0621)
+ * @param {string} fileType - The type of file ("BM", "RM", or "FG").
+ * @param {Date} [date=new Date()] - The date for the filename.
  * @returns {string} The generated filename.
  */
 function generateFilename(fileType, date = new Date()) {
@@ -36,40 +22,68 @@ function generateFilename(fileType, date = new Date()) {
   return `${fileType}${day}${hours}${minutes}.${month}${year}`;
 }
 
+/**
+ * Parses an XLSX file buffer into a standardized data object.
+ * @param {Buffer} buffer - The buffer of the XLSX file.
+ * @returns {Promise<Object>} A promise that resolves to an object like { Sheet1: [records] }.
+ */
 async function parseXLSX(buffer) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
 
   const data = {};
-  workbook.eachSheet((worksheet) => {
-    const sheetData = [];
-    const headers = [];
+  const worksheet = workbook.worksheets[0];
+  if (!worksheet) {
+    return { Sheet1: [] };
+  }
 
-    // Read headers from the first row
-    worksheet.getRow(1).eachCell((cell) => {
-      headers.push(cell.value);
-    });
+  const sheetData = [];
+  const headers = [];
 
-    // Iterate over rows, skipping the header row
-    worksheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) {
-        return; // Skip header row
+  const headerRow = worksheet.getRow(1);
+  if (headerRow) {
+    headerRow.eachCell((cell) => {
+      if (cell.value && typeof cell.value === "object" && cell.value.richText) {
+        headers.push(cell.value.richText.map((rt) => rt.text).join(""));
+      } else {
+        headers.push(cell.value);
       }
-
-      const rowValues = {};
-      row.eachCell((cell, colNumber) => {
-        const header = headers[colNumber - 1]; // colNumber is 1-indexed
-        if (header) {
-          rowValues[header] = cell.value;
-        }
-      });
-      sheetData.push(rowValues);
     });
-    data[worksheet.name] = sheetData;
+  }
+
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return;
+
+    const rowValues = {};
+    let hasValues = false;
+    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      const header = headers[colNumber - 1];
+      if (header) {
+        const cellValue =
+          cell.value && cell.value.result !== undefined
+            ? cell.value.result
+            : cell.value;
+        rowValues[header] = cellValue;
+        if (cellValue !== null && cellValue !== undefined) {
+          hasValues = true;
+        }
+      }
+    });
+
+    if (hasValues) {
+      sheetData.push(rowValues);
+    }
   });
+
+  data["Sheet1"] = sheetData;
   return data;
 }
 
+/**
+ * Parses a CSV file buffer into a standardized data object.
+ * @param {Buffer} buffer - The buffer of the CSV file.
+ * @returns {Promise<Object>} A promise that resolves to an object like { Sheet1: [records] }.
+ */
 async function parseCSV(buffer) {
   const results = [];
   const stream = Readable.from(buffer);
@@ -88,81 +102,71 @@ async function parseCSV(buffer) {
 }
 
 /**
- * Parses a plain text file based on a given schema.
- * Assumes each line in the text file represents a record.
- * Returns an array of plain JavaScript objects, not Mongoose documents.
- *
+ * Parses a fixed-width plain text file based on a given schema.
  * @param {Buffer} buffer - The buffer containing the text file content.
- * @param {string} documentType - The type of document (e.g., 'finishedProduct', 'rawMaterial', 'billOfMaterials').
- * @returns {Object} An object containing parsed data, typically { Sheet1: [records] }.
+ * @param {string} documentType - The type of document ('finishedProduct', 'rawMaterial', 'billOfMaterials').
+ * @returns {Promise<Object>} A promise that resolves to an object like { Sheet1: [records] }.
  */
 async function parseTXT(buffer, documentType) {
   const text = buffer.toString("utf8");
-  const lines = text.split(/\r?\n/).filter(Boolean); // Split by newline, remove empty lines
+  const lines = text.split(/\r?\n/).filter((line) => line.trim() !== "");
 
-  let schemaSpec;
-  let Model;
-
-  switch (documentType) {
-    case "finishedProduct":
-      schemaSpec = finishedProductSchemaSpec;
-      Model = FinishedProduct;
-      break;
-    case "rawMaterial":
-      schemaSpec = rawMaterialSchemaSpec;
-      Model = RawMaterial;
-      break;
-    case "billOfMaterials":
-      schemaSpec = billOfMaterialsSchemaSpec;
-      Model = BillOfMaterials;
-      break;
-    default:
-      throw new Error(`Unknown document type for TXT parsing: ${documentType}`);
-  }
+  // --- REFACTORED LOGIC ---
+  // Get the schema spec directly from the registry.
+  const { schemaSpec } = getRegistryEntry(documentType);
+  // --- END REFACTORED LOGIC ---
 
   const parsedRecords = lines.map((line) => {
     const record = {};
     for (const field of schemaSpec) {
-      let value = line.substring(field.start, field.end + 1); // Extract as-is
+      let rawValue = line.substring(field.start, field.end + 1);
 
-      // Trim spaces from value unless it's a filler
       if (field.dataElement !== "Filler") {
-        value = value.trim();
+        rawValue = rawValue.trim();
       }
 
-      // Convert to appropriate type based on schema
-      if (field.type === "N") {
-        record[field.dataElement] = parseFloat(value) || 0;
-      } else if (field.type === "D") {
-        // Parse YYYYMMDD string to Date object
-        const year = parseInt(value.substring(0, 4), 10);
-        const month = parseInt(value.substring(4, 6), 10) - 1; // Month is 0-indexed
-        const day = parseInt(value.substring(6, 8), 10);
-        if (isNaN(year) || isNaN(month) || isNaN(day)) {
-          record[field.dataElement] = null; // Or handle as an error
-        } else {
-          record[field.dataElement] = new Date(year, month, day);
-        }
-      } else if (Array.isArray(field.possibleValues)) {
-        // If it's an enum, store just the code if "Code = Description"
-        const foundPossibleValue = field.possibleValues.find((pv) => {
-          const parts = pv.split(" = ");
-          return (
-            (parts.length > 1 ? parts[0] : pv).toUpperCase() ===
-            value.toUpperCase()
-          );
-        });
-        record[field.dataElement] = foundPossibleValue
-          ? foundPossibleValue.split(" = ")[0] || foundPossibleValue
-          : value;
-      } else {
-        record[field.dataElement] = value;
+      if (rawValue === "") {
+        record[field.dataElement] = null;
+        continue;
+      }
+
+      switch (field.type) {
+        case "N":
+          const num = parseFloat(rawValue);
+          record[field.dataElement] = isNaN(num) ? null : num;
+          break;
+
+        case "D":
+          if (rawValue.length === 8 && /^\d{8}$/.test(rawValue)) {
+            const year = parseInt(rawValue.substring(0, 4), 10);
+            const month = parseInt(rawValue.substring(4, 6), 10) - 1;
+            const day = parseInt(rawValue.substring(6, 8), 10);
+
+            const date = new Date(year, month, day);
+            if (
+              date.getFullYear() === year &&
+              date.getMonth() === month &&
+              date.getDate() === day
+            ) {
+              record[field.dataElement] = date;
+            } else {
+              record[field.dataElement] = null;
+            }
+          } else {
+            record[field.dataElement] = null;
+          }
+          break;
+
+        case "A":
+        default:
+          record[field.dataElement] = rawValue;
+          break;
       }
     }
     return record;
   });
 
-  return { Sheet1: parsedRecords }; // Return as an object with a sheet
+  return { Sheet1: parsedRecords };
 }
 
 module.exports = {

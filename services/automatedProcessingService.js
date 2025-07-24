@@ -4,6 +4,9 @@ const path = require("path");
 const fileConversionService = require("./fileConversionService");
 const sftpService = require("./sftpService");
 const conversionJobRepository = require("../repositories/conversionJobRepository");
+const {
+  getDocumentTypeByPrefix,
+} = require("../data/documentTypeRegistry");
 
 const INPUT_DIR =
   process.env.SFTP_LOCAL_INPUT_DIR ||
@@ -24,8 +27,8 @@ const ensureDirectoriesExist = async () => {
   await fs.mkdir(path.join(__dirname, "..", "temp_uploads"), {
     recursive: true,
   });
-  await fs.mkdir(TEMP_OUTPUT_DIR, { recursive: true }); // Ensure this for conversion service
-  await fs.mkdir(TEMP_ERROR_DIR, { recursive: true }); // Ensure this for conversion service
+  await fs.mkdir(TEMP_OUTPUT_DIR, { recursive: true });
+  await fs.mkdir(TEMP_ERROR_DIR, { recursive: true });
   console.log(
     `[Automated Service] Ensured directories: ${INPUT_DIR}, ${PROCESSED_DIR}, ${FAILED_DIR}, ${path.join(
       __dirname,
@@ -68,12 +71,36 @@ const processWatchedFiles = async () => {
     }
 
     const originalName = fileName;
-    const fileExtension = path.extname(originalName).toLowerCase();
 
-    // Determine outputFormat and conversionOptions
-    let outputFormat = "txt";
+    // --- REFACTORED LOGIC ---
+    // Determine documentType from filename prefix using the registry
+    const filePrefix = originalName.substring(0, 2).toUpperCase();
+    const documentType = getDocumentTypeByPrefix(filePrefix);
+
+    if (!documentType) {
+      console.warn(
+        `[Automated Service] Unknown document type prefix in filename: ${filePrefix}. Skipping file: ${originalName}`
+      );
+      try {
+        // Move unknown files to the failed directory
+        const newPath = path.join(FAILED_DIR, originalName);
+        await fs.rename(filePath, newPath);
+        console.log(
+          `[Automated Service] Moved unknown file type ${originalName} to ${FAILED_DIR}`
+        );
+      } catch (moveErr) {
+        console.error(
+          `[Automated Service] Could not move unknown file type ${originalName} to ${FAILED_DIR}:`,
+          moveErr
+        );
+      }
+      continue; // Skip this file and proceed to the next
+    }
+    // --- END REFACTORED LOGIC ---
+
+    let outputFormat = "txt"; // As per your requirement, output is always txt
     let conversionOptions = {
-      documentType: "finishedProduct", // Still needs a robust way to be dynamic!
+      documentType: documentType, // Now dynamic!
     };
 
     console.log(`[Automated Service] Processing file: ${originalName}`);
@@ -86,7 +113,7 @@ const processWatchedFiles = async () => {
     try {
       fileBuffer = await fs.readFile(filePath);
 
-      // Create a job entry - MODIFIED CALL
+      // Create a job entry
       newJob = await conversionJobRepository.createConversionJob({
         userId: null, // No direct user for automated jobs
         fileName: originalName,
@@ -97,14 +124,14 @@ const processWatchedFiles = async () => {
         isAutomated: true, // Explicitly true for automated jobs
       });
 
-      // Process the file - MODIFIED CALL
+      // Process the file
       const processingResult =
         await fileConversionService.processFileForConversion(
           fileBuffer,
           originalName,
           outputFormat,
           conversionOptions,
-          null, // No callerUserId
+          null, // No callerUserId for automated jobs
           true // Explicitly true for isAutomated
         );
 
@@ -127,13 +154,17 @@ const processWatchedFiles = async () => {
       const sftpRemoteErrorDir =
         process.env.SFTP_REMOTE_ERROR_DIR || "/error_reports";
 
-      if (
-        convertedFilePath &&
-        (await fs
-          .access(convertedFilePath, fs.constants.F_OK)
-          .then(() => true)
-          .catch(() => false))
-      ) {
+      // Helper to check file existence asynchronously
+      const fileExists = async (filePath) => {
+        try {
+          await fs.access(filePath, fs.constants.F_OK);
+          return true;
+        } catch {
+          return false;
+        }
+      };
+
+      if (convertedFilePath && (await fileExists(convertedFilePath))) {
         const remoteConvertedFileName = path.basename(convertedFilePath);
         await sftpService.uploadFileViaSftp(
           convertedFilePath,
@@ -153,13 +184,7 @@ const processWatchedFiles = async () => {
         );
       }
 
-      if (
-        errorReportPath &&
-        (await fs
-          .access(errorReportPath, fs.constants.F_OK)
-          .then(() => true)
-          .catch(() => false))
-      ) {
+      if (errorReportPath && (await fileExists(errorReportPath))) {
         const remoteErrorFileName = path.basename(errorReportPath);
         await sftpService.uploadFileViaSftp(
           errorReportPath,
@@ -211,13 +236,16 @@ const processWatchedFiles = async () => {
           }
         );
       }
-      if (
-        convertedFilePath &&
-        (await fs
-          .access(convertedFilePath, fs.constants.F_OK)
-          .then(() => true)
-          .catch(() => false))
-      ) {
+      // Clean up potentially created temporary files even on error
+      const fileExists = async (filePath) => {
+        try {
+          await fs.access(filePath, fs.constants.F_OK);
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      if (convertedFilePath && (await fileExists(convertedFilePath))) {
         await fs
           .unlink(convertedFilePath)
           .catch((e) =>
@@ -227,13 +255,7 @@ const processWatchedFiles = async () => {
             )
           );
       }
-      if (
-        errorReportPath &&
-        (await fs
-          .access(errorReportPath, fs.constants.F_OK)
-          .then(() => true)
-          .catch(() => false))
-      ) {
+      if (errorReportPath && (await fileExists(errorReportPath))) {
         await fs
           .unlink(errorReportPath)
           .catch((e) =>

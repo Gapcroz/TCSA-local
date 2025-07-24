@@ -12,23 +12,17 @@ const {
   applyBusinessValidations,
 } = require("../utils/validationUtils");
 const { applyTransformations } = require("../utils/transformationUtils");
-// Import schema specs to define output structure for standardized TXT
-const {
-  finishedProductSchemaSpec,
-  rawMaterialSchemaSpec,
-  billOfMaterialsSchemaSpec,
-} = require("../data/dataSchemas");
+// Import the registry to get schema information
+const { getRegistryEntry } = require("../data/documentTypeRegistry");
 
 // Service that encapsulates file conversion logic
-// MODIFIED SIGNATURE: userId is now optional, isAutomated is new
 const processFileForConversion = async (
   fileBuffer,
   originalName,
   outputFormat,
   conversionOptions,
-  // userId is now optional, handled by specific callers if needed
-  callerUserId = null, // Renamed for clarity, it's the user who initiated if applicable
-  isAutomated = false // New parameter to indicate automated job
+  callerUserId = null,
+  isAutomated = false
 ) => {
   let parsedData;
   const fileExtension = path.extname(originalName).toLowerCase();
@@ -36,8 +30,10 @@ const processFileForConversion = async (
 
   const { documentType } = conversionOptions;
 
-  if (fileExtension === ".txt" && !documentType) {
-    throw new Error("Document type is required for TXT file parsing.");
+  if (!documentType) {
+    throw new Error(
+      "Document type (e.g., 'finishedProduct', 'rawMaterial') is required for file processing."
+    );
   }
 
   if (outputFormat !== "txt") {
@@ -59,14 +55,14 @@ const processFileForConversion = async (
       parsedData = await parseTXT(fileBuffer, documentType);
       break;
     default:
-      throw new Error("Unsupported input file format.");
+      throw new Error(`Unsupported input file format: ${fileExtension}.`);
   }
 
   // Step 2: Transformation (Units and Trade Codes)
   let transformedData = applyTransformations(parsedData, documentType);
 
   // Step 3: Validation (Data Integrity and Business Rules)
-  const integrityResult = validateDataIntegrity(transformedData);
+  const integrityResult = validateDataIntegrity(transformedData, documentType);
   if (!integrityResult.isValid) {
     errorReport.push(...integrityResult.errors);
   }
@@ -118,7 +114,7 @@ const processFileForConversion = async (
  * Writes data to a standardized plain text file based on the schema.
  * Each record is a line, with fields at specific positions.
  *
- * @param {Object} data - The processed data, typically { Sheet1: [records] } (plain JS objects).
+ * @param {Object} data - The processed data, typically { Sheet1: [records] }.
  * @param {string} filePath - The path where the file should be written.
  * @param {string} documentType - The type of document to determine the schema.
  */
@@ -129,20 +125,10 @@ async function writeToStandardizedTXT(data, filePath, documentType) {
     return;
   }
 
-  let schemaSpec;
-  switch (documentType) {
-    case "finishedProduct":
-      schemaSpec = finishedProductSchemaSpec;
-      break;
-    case "rawMaterial":
-      schemaSpec = rawMaterialSchemaSpec;
-      break;
-    case "billOfMaterials":
-      schemaSpec = billOfMaterialsSchemaSpec;
-      break;
-    default:
-      throw new Error(`Unknown document type for TXT writing: ${documentType}`);
-  }
+  // --- REFACTORED LOGIC ---
+  // Get the schema spec directly from the registry instead of using a switch statement.
+  const { schemaSpec } = getRegistryEntry(documentType);
+  // --- END REFACTORED LOGIC ---
 
   const lines = records.map((record) => {
     let line = "";
@@ -154,32 +140,45 @@ async function writeToStandardizedTXT(data, filePath, documentType) {
         formattedValue = "";
       } else {
         if (field.type === "N") {
-          const parts = field.format.match(/9\((\d+)\)\.?9?\(?(\d+)?\)?/);
-          let integerLength = parseInt(parts[1], 10);
-          let decimalLength = parts[2] ? parseInt(parts[2], 10) : 0;
+          const formatMatch = field.format.match(/9\((\d+)\)\.?9?\(?(\d+)?\)?/);
+          const integerLengthInFormat = parseInt(formatMatch[1], 10);
+          const decimalLengthInFormat = formatMatch[2]
+            ? parseInt(formatMatch[2], 10)
+            : 0;
 
           let num = parseFloat(value);
           if (isNaN(num)) {
             formattedValue = "";
           } else {
-            formattedValue = num.toFixed(decimalLength);
-            const [intPart, decPart] = formattedValue.split(".");
-            const paddedIntPart = intPart.padStart(integerLength, "0");
-            formattedValue = paddedIntPart;
-            if (decimalLength > 0) {
-              formattedValue +=
-                "." + (decPart || "").padEnd(decimalLength, "0");
+            let tempValueString = num.toFixed(decimalLengthInFormat);
+            let [intPart, decPart] = tempValueString.split(".");
+            intPart = intPart.padStart(integerLengthInFormat, "0");
+
+            if (decimalLengthInFormat > 0) {
+              formattedValue = intPart + "." + decPart;
+            } else {
+              formattedValue = intPart;
             }
           }
         } else if (field.type === "D") {
-          formattedValue = String(value);
+          if (value instanceof Date && !isNaN(value)) {
+            const year = value.getFullYear();
+            const month = (value.getMonth() + 1).toString().padStart(2, "0");
+            const day = value.getDate().toString().padStart(2, "0");
+            formattedValue = `${year}${month}${day}`;
+          } else if (typeof value === "string" && value.match(/^\d{8}$/)) {
+            formattedValue = value;
+          } else {
+            formattedValue = "";
+          }
         } else {
           formattedValue = String(value);
         }
       }
 
-      formattedValue = formattedValue.padEnd(field.length, " ");
-      formattedValue = formattedValue.substring(0, field.length);
+      formattedValue = formattedValue
+        .padEnd(field.length, " ")
+        .substring(0, field.length);
 
       line += formattedValue;
     }

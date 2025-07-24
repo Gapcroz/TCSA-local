@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 
+// Helper function to create schema fields from your spec
 const createSchemaField = (fieldSpec) => {
   let type;
   let required = fieldSpec.requirement === "M";
@@ -15,7 +16,7 @@ const createSchemaField = (fieldSpec) => {
       type = Date;
       break;
     default:
-      type = String;
+      type = String; // Default to string if type is unknown
   }
 
   const schemaField = { type: type };
@@ -23,13 +24,18 @@ const createSchemaField = (fieldSpec) => {
   if (required) {
     schemaField.required = [true, `${fieldSpec.dataElement} is required.`];
   } else if (fieldSpec.requirement === "A") {
+    // "If Applies" fields are not strictly required by default Mongoose schema,
+    // but validation logic will handle their conditional requirement.
     schemaField.required = false;
   }
 
+  // Add enum for possible values if applicable
   if (Array.isArray(fieldSpec.possibleValues)) {
+    // For values like "A = Ambient", store just "A" in DB.
+    // Use a regex to handle inconsistent spacing around the "=".
     const enumValues = fieldSpec.possibleValues.map((val) => {
-      const parts = val.split(" = ");
-      return parts.length > 1 ? parts[0] : val;
+      const parts = val.split(/\s*=\s*/); // Robust split
+      return parts[0]; // Always take the first part as the code
     });
     schemaField.enum = enumValues;
   }
@@ -72,7 +78,7 @@ const billOfMaterialsSchemaSpec = [
     length: 1,
     position: "61",
     format: "X(01)",
-    possibleValues: ["P-Part", "S-Subassemblies"],
+    possibleValues: ["P", "S"],
     requirement: "M",
     description:
       "A Code that identifies the component as a Part or as a Sub-Assembly (multi-level BOM)",

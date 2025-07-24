@@ -72,7 +72,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     try {
-      const response = await fetch("/api/convert", {
+      const response = await fetch("/api/files/upload", {
         method: "POST",
         body: formData,
         headers: {
