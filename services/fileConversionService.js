@@ -1,19 +1,12 @@
-// services/fileConversionService.js
 const path = require("path");
 const fs = require("fs/promises");
-const ExcelJS = require("exceljs");
-const csvParser = require("csv-parser");
-const { Readable } = require("stream");
-
-// Import utilities
+const { getRegistryEntry } = require("../data/documentTypeRegistry");
 const { parseXLSX, parseCSV, parseTXT } = require("../utils/fileParsers");
 const {
   validateDataIntegrity,
   applyBusinessValidations,
 } = require("../utils/validationUtils");
 const { applyTransformations } = require("../utils/transformationUtils");
-// Import the registry to get schema information
-const { getRegistryEntry } = require("../data/documentTypeRegistry");
 
 // Service that encapsulates file conversion logic
 const processFileForConversion = async (
@@ -24,25 +17,18 @@ const processFileForConversion = async (
   callerUserId = null,
   isAutomated = false
 ) => {
-  let parsedData;
   const fileExtension = path.extname(originalName).toLowerCase();
   let errorReport = [];
-
   const { documentType } = conversionOptions;
 
   if (!documentType) {
     throw new Error(
-      "Document type (e.g., 'finishedProduct', 'rawMaterial') is required for file processing."
-    );
-  }
-
-  if (outputFormat !== "txt") {
-    throw new Error(
-      `Only 'txt' output format is supported. Received: '${outputFormat}'.`
+      "Document type (e.g., 'finishedProduct', 'rawMaterial') is required for processing."
     );
   }
 
   // Step 1: Parsing
+  let parsedData;
   switch (fileExtension) {
     case ".xls":
     case ".xlsx":
@@ -58,7 +44,7 @@ const processFileForConversion = async (
       throw new Error(`Unsupported input file format: ${fileExtension}.`);
   }
 
-  // Step 2: Transformation (Units and Trade Codes)
+  // Step 2: Transformation (e.g., normalize enum values)
   let transformedData = applyTransformations(parsedData, documentType);
 
   // Step 3: Validation (Data Integrity and Business Rules)
@@ -89,7 +75,7 @@ const processFileForConversion = async (
 
   await writeToStandardizedTXT(transformedData, outputFilePath, documentType);
 
-  // Generate error report if any errors occurred
+  // Step 5: Generate error report if any errors occurred
   let errorReportPath = null;
   if (errorReport.length > 0) {
     const errorReportFileName = `${path.parse(originalName).name}-errors.json`;
@@ -114,7 +100,7 @@ const processFileForConversion = async (
  * Writes data to a standardized plain text file based on the schema.
  * Each record is a line, with fields at specific positions.
  *
- * @param {Object} data - The processed data, typically { Sheet1: [records] }.
+ * @param {Object} data - The processed data, e.g., { Sheet1: [records] }.
  * @param {string} filePath - The path where the file should be written.
  * @param {string} documentType - The type of document to determine the schema.
  */
@@ -125,10 +111,7 @@ async function writeToStandardizedTXT(data, filePath, documentType) {
     return;
   }
 
-  // --- REFACTORED LOGIC ---
-  // Get the schema spec directly from the registry instead of using a switch statement.
   const { schemaSpec } = getRegistryEntry(documentType);
-  // --- END REFACTORED LOGIC ---
 
   const lines = records.map((record) => {
     let line = "";
@@ -136,29 +119,19 @@ async function writeToStandardizedTXT(data, filePath, documentType) {
       let value = record[field.dataElement];
       let formattedValue = "";
 
-      if (value === null || value === undefined) {
-        formattedValue = "";
-      } else {
+      if (value !== null && value !== undefined) {
         if (field.type === "N") {
-          const formatMatch = field.format.match(/9\((\d+)\)\.?9?\(?(\d+)?\)?/);
-          const integerLengthInFormat = parseInt(formatMatch[1], 10);
-          const decimalLengthInFormat = formatMatch[2]
-            ? parseInt(formatMatch[2], 10)
-            : 0;
-
-          let num = parseFloat(value);
-          if (isNaN(num)) {
-            formattedValue = "";
-          } else {
-            let tempValueString = num.toFixed(decimalLengthInFormat);
-            let [intPart, decPart] = tempValueString.split(".");
-            intPart = intPart.padStart(integerLengthInFormat, "0");
-
-            if (decimalLengthInFormat > 0) {
-              formattedValue = intPart + "." + decPart;
-            } else {
-              formattedValue = intPart;
-            }
+          // --- THIS IS THE NEW LOGIC FOR NUMERIC FORMATTING ---
+          const num = parseFloat(value);
+          if (!isNaN(num)) {
+            // Get decimal precision from the format string (e.g., 8 from 9(08).9(08))
+            const formatMatch = field.format.match(/9\((\d+)\)\.?9?\(?(\d+)?\)?/);
+            const decimalLengthInFormat = formatMatch[2] ? parseInt(formatMatch[2], 10) : 0;
+            
+            // Use toFixed for rounding, then remove trailing zeros and the decimal point if it's a whole number.
+            // Example: 1.00 -> "1.00" -> "1"
+            // Example: 1.230 -> "1.23" -> "1.23"
+            formattedValue = num.toFixed(decimalLengthInFormat).replace(/\.?0+$/, "");
           }
         } else if (field.type === "D") {
           if (value instanceof Date && !isNaN(value)) {
@@ -166,16 +139,13 @@ async function writeToStandardizedTXT(data, filePath, documentType) {
             const month = (value.getMonth() + 1).toString().padStart(2, "0");
             const day = value.getDate().toString().padStart(2, "0");
             formattedValue = `${year}${month}${day}`;
-          } else if (typeof value === "string" && value.match(/^\d{8}$/)) {
-            formattedValue = value;
-          } else {
-            formattedValue = "";
           }
         } else {
           formattedValue = String(value);
         }
       }
 
+      // Final step: Left-align the value and pad with spaces to the field's exact length.
       formattedValue = formattedValue
         .padEnd(field.length, " ")
         .substring(0, field.length);

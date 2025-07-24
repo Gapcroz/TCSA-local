@@ -33,7 +33,10 @@ const uploadAndConvertFile = async (req, res) => {
 
   // Ensure documentType is provided for TXT output (relevant for manual uploads of XLS/CSV too)
   if (!conversionOptions.documentType && path.extname(originalname).toLowerCase() !== '.txt') {
-    conversionOptions.documentType = 'BM';
+    if(path.basename(originalname).length > 4) {
+      conversionOptions.documentType = originalname.substring(0,2);
+    }
+
     // await fs.unlink(tempFilePath);
     // return res.status(400).json({ message: 'El tipo de documento es requerido para la conversión.' });
   }
