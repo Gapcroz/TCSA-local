@@ -72,17 +72,15 @@ const processWatchedFiles = async () => {
 
     const originalName = fileName;
 
-    // --- REFACTORED LOGIC ---
-    // Determine documentType from filename prefix using the registry
+    // --- REVISED LOGIC TO GET CANONICAL DOCUMENT TYPE ---
     const filePrefix = originalName.substring(0, 2).toUpperCase();
-    const documentType = getDocumentTypeByPrefix(filePrefix);
+    const registryEntry = getDocumentTypeByPrefix(filePrefix);
 
-    if (!documentType) {
+    if (!registryEntry) {
       console.warn(
         `[Automated Service] Unknown document type prefix in filename: ${filePrefix}. Skipping file: ${originalName}`
       );
       try {
-        // Move unknown files to the failed directory
         const newPath = path.join(FAILED_DIR, originalName);
         await fs.rename(filePath, newPath);
         console.log(
@@ -94,13 +92,18 @@ const processWatchedFiles = async () => {
           moveErr
         );
       }
-      continue; // Skip this file and proceed to the next
+      continue;
     }
-    // --- END REFACTORED LOGIC ---
 
-    let outputFormat = "txt"; // As per your requirement, output is always txt
+    const documentType = registryEntry.docType; // Get the canonical name
+    console.log(
+      `[Automated Service] Resolved prefix "${filePrefix}" to documentType "${documentType}"`
+    );
+    // --- END REVISED LOGIC ---
+
+    let outputFormat = "txt";
     let conversionOptions = {
-      documentType: documentType, // Now dynamic!
+      documentType: documentType, // Now passing the correct string identifier
     };
 
     console.log(`[Automated Service] Processing file: ${originalName}`);
@@ -113,26 +116,24 @@ const processWatchedFiles = async () => {
     try {
       fileBuffer = await fs.readFile(filePath);
 
-      // Create a job entry
       newJob = await conversionJobRepository.createConversionJob({
-        userId: null, // No direct user for automated jobs
+        userId: null,
         fileName: originalName,
         originalFilePath: filePath,
         outputFormat: outputFormat,
         conversionOptions: conversionOptions,
         status: "processing",
-        isAutomated: true, // Explicitly true for automated jobs
+        isAutomated: true,
       });
 
-      // Process the file
       const processingResult =
         await fileConversionService.processFileForConversion(
           fileBuffer,
           originalName,
           outputFormat,
           conversionOptions,
-          null, // No callerUserId for automated jobs
-          true // Explicitly true for isAutomated
+          null,
+          true
         );
 
       convertedFilePath = processingResult.convertedFilePath;
@@ -154,7 +155,6 @@ const processWatchedFiles = async () => {
       const sftpRemoteErrorDir =
         process.env.SFTP_REMOTE_ERROR_DIR || "/error_reports";
 
-      // Helper to check file existence asynchronously
       const fileExists = async (filePath) => {
         try {
           await fs.access(filePath, fs.constants.F_OK);
@@ -236,7 +236,6 @@ const processWatchedFiles = async () => {
           }
         );
       }
-      // Clean up potentially created temporary files even on error
       const fileExists = async (filePath) => {
         try {
           await fs.access(filePath, fs.constants.F_OK);

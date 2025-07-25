@@ -1,3 +1,4 @@
+// utils/transformationUtils.js
 const { getRegistryEntry } = require("../data/documentTypeRegistry");
 
 /**
@@ -11,42 +12,93 @@ const applyTransformations = (parsedData, documentType) => {
   const transformedData = { ...parsedData };
   const records = transformedData.Sheet1;
 
-  // Get the schema spec from the central registry.
   const { schemaSpec } = getRegistryEntry(documentType);
 
   if (!records || records.length === 0) {
     return transformedData;
   }
 
-  records.forEach((record) => {
-    schemaSpec.forEach((fieldSpec) => {
-      // This transformation ensures that if a user provides a full description
-      // (e.g., "Ambient"), it gets normalized to its code ("A") before validation.
-      if (
-        Array.isArray(fieldSpec.possibleValues) &&
-        record[fieldSpec.dataElement]
-      ) {
-        const rawValue = String(record[fieldSpec.dataElement]).trim();
+  console.log(
+    `[Transformation] Starting transformations for document type: ${documentType}`
+  );
 
-        // Find the matching entry in possibleValues
+  records.forEach((record, index) => {
+    const rowNum = index + 2; // For user-friendly logging
+
+    schemaSpec.forEach((fieldSpec) => {
+      const fieldName = fieldSpec.dataElement;
+      if (record[fieldName] === undefined || record[fieldName] === null) {
+        return; // Skip empty fields
+      }
+
+      // Only apply special logic for fields with predefined possible values
+      if (Array.isArray(fieldSpec.possibleValues)) {
+        const rawValue = String(record[fieldName]).trim();
+        const upperRawValue = rawValue.toUpperCase();
+
+        // Log the initial state for problematic fields
+        if (fieldName === "NAFTA" || fieldName === "Producer") {
+          console.log(
+            `[Row ${rowNum}] PRE-TRANSFORM | Field: "${fieldName}" | Value: "${rawValue}"`
+          );
+        }
+
+        // Specific transformations for Finished Product
+        if (documentType === "finishedProduct") {
+          if (fieldName === "NAFTA") {
+            if (upperRawValue === "YES") {
+              record[fieldName] = "Y";
+              console.log(
+                `[Row ${rowNum}] POST-TRANSFORM | Field: "${fieldName}" | Changed to: "Y"`
+              );
+              return;
+            }
+            if (upperRawValue === "NO") {
+              record[fieldName] = "N";
+              console.log(
+                `[Row ${rowNum}] POST-TRANSFORM | Field: "${fieldName}" | Changed to: "N"`
+              );
+              return;
+            }
+          }
+
+          if (fieldName === "Producer") {
+            if (upperRawValue === "YES") {
+              record[fieldName] = "Yes";
+              console.log(
+                `[Row ${rowNum}] POST-TRANSFORM | Field: "${fieldName}" | Changed to: "Yes"`
+              );
+              return;
+            }
+            if (upperRawValue === "NO") {
+              record[fieldName] = "No (1)";
+              console.log(
+                `[Row ${rowNum}] POST-TRANSFORM | Field: "${fieldName}" | Changed to: "No (1)"`
+              );
+              return;
+            }
+          }
+        }
+
+        // Generic transformation for description-to-code mapping
         const mappedValue = fieldSpec.possibleValues.find((pv) => {
           const [code, description] = pv.split(/\s*=\s*/);
-          // Check if the raw value matches either the code or the description (case-insensitive)
           return (
-            rawValue.toUpperCase() === code.toUpperCase() ||
-            (description &&
-              rawValue.toUpperCase() === description.toUpperCase())
+            upperRawValue === code.toUpperCase() ||
+            (description && upperRawValue === description.toUpperCase())
           );
         });
 
         if (mappedValue) {
-          // If a match is found, always store just the code part.
-          record[fieldSpec.dataElement] = mappedValue.split(/\s*=\s*/)[0];
+          const code = mappedValue.split(/\s*=\s*/)[0];
+          if (record[fieldName] !== code) {
+            record[fieldName] = code;
+          }
         }
       }
     });
 
-    // Example of another common transformation: standardize part numbers to uppercase.
+    // Standardize part numbers
     if (record["Part Number"]) {
       record["Part Number"] = String(record["Part Number"]).toUpperCase();
     }

@@ -1,3 +1,4 @@
+// data/documentTypeRegistry.js
 // This file acts as a central registry for all document type configurations.
 // It maps internal document type names to their corresponding models, schemas, and file prefixes.
 
@@ -66,6 +67,16 @@ const getRegistryEntry = (identifier) => {
   throw new Error(`Unknown document type or prefix requested: ${identifier}`);
 };
 
+/**
+ * Retrieves the configuration entry specifically by its file prefix.
+ * @param {string} prefix - The file prefix (e.g., 'FG').
+ * @returns {object|undefined} The configuration object or undefined if not found.
+ */
+const getDocumentTypeByPrefix = (prefix) => {
+  return prefixToConfigMap[prefix];
+};
+
 module.exports = {
   getRegistryEntry,
+  getDocumentTypeByPrefix, // Export the new function
 };
