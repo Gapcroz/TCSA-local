@@ -1,5 +1,5 @@
 // repositories/userRepository.js
-const User = require('../models/User');
+const User = require('../models/user');
 
 const findUserById = async (id) => {
   return await User.findById(id);

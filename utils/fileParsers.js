@@ -2,8 +2,10 @@
 const ExcelJS = require("exceljs");
 const csvParser = require("csv-parser");
 const { Readable } = require("stream");
-// Import the registry to get schema information
+const Fuse = require("fuse.js"); // Needed for CSV parser
 const { getRegistryEntry } = require("../data/documentTypeRegistry");
+// Import the new header mapper utility
+const { mapHeaders } = require("./headerMapper");
 
 /**
  * Generates a filename based on the specified convention.
@@ -23,47 +25,54 @@ function generateFilename(fileType, date = new Date()) {
 }
 
 /**
- * Parses an XLSX file buffer into a standardized data object.
+ * Parses an XLSX file buffer using flexible header mapping.
  * @param {Buffer} buffer - The buffer of the XLSX file.
- * @returns {Promise<Object>} A promise that resolves to an object like { Sheet1: [records] }.
+ * @param {string} documentType - The type of document for schema lookup.
+ * @returns {Promise<Object>} A promise that resolves to { Sheet1: [records] }.
  */
-async function parseXLSX(buffer) {
+async function parseXLSX(buffer, documentType) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
-
   const data = {};
   const worksheet = workbook.worksheets[0];
-  if (!worksheet) {
-    return { Sheet1: [] };
-  }
+  if (!worksheet) return { Sheet1: [] };
 
-  const sheetData = [];
-  const headers = [];
+  const { schemaSpec } = getRegistryEntry(documentType);
 
+  // Extract headers from the first row of the sheet
+  const fileHeaders = [];
   const headerRow = worksheet.getRow(1);
   if (headerRow) {
     headerRow.eachCell((cell) => {
-      if (cell.value && typeof cell.value === "object" && cell.value.richText) {
-        headers.push(cell.value.richText.map((rt) => rt.text).join(""));
-      } else {
-        headers.push(cell.value);
-      }
+      const headerText =
+        cell.value && cell.value.richText
+          ? cell.value.richText.map((rt) => rt.text).join("")
+          : cell.value;
+      fileHeaders.push(headerText);
     });
   }
 
+  // Generate the map from file headers to our canonical schema fields
+  const headerMap = mapHeaders(fileHeaders, schemaSpec);
+
+  const sheetData = [];
   worksheet.eachRow((row, rowNumber) => {
-    if (rowNumber === 1) return;
+    if (rowNumber === 1) return; // Skip header row
 
     const rowValues = {};
     let hasValues = false;
     row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-      const header = headers[colNumber - 1];
-      if (header) {
+      const originalHeader = fileHeaders[colNumber - 1];
+      // Use the map to find the correct, canonical field name
+      const canonicalHeader = headerMap[originalHeader];
+
+      if (canonicalHeader) {
         const cellValue =
           cell.value && cell.value.result !== undefined
             ? cell.value.result
             : cell.value;
-        rowValues[header] = cellValue;
+        // Assign the value to the CANONICAL header name
+        rowValues[canonicalHeader] = cellValue;
         if (cellValue !== null && cellValue !== undefined) {
           hasValues = true;
         }
@@ -80,68 +89,85 @@ async function parseXLSX(buffer) {
 }
 
 /**
- * Parses a CSV file buffer into a standardized data object.
+ * Parses a CSV file buffer using flexible header mapping.
  * @param {Buffer} buffer - The buffer of the CSV file.
- * @returns {Promise<Object>} A promise that resolves to an object like { Sheet1: [records] }.
+ * @param {string} documentType - The type of document for schema lookup.
+ * @returns {Promise<Object>} A promise that resolves to { Sheet1: [records] }.
  */
-async function parseCSV(buffer) {
+async function parseCSV(buffer, documentType) {
+  const { schemaSpec } = getRegistryEntry(documentType);
   const results = [];
   const stream = Readable.from(buffer);
 
+  // Prepare Fuse.js instance for mapping headers
+  const fuse = new Fuse(
+    schemaSpec.map((field) => ({
+      canonicalName: field.dataElement,
+      searchable: [field.dataElement, ...(field.aliases || [])],
+    })),
+    { keys: ["searchable"], includeScore: true, threshold: 0.4 }
+  );
+
   return new Promise((resolve, reject) => {
     stream
-      .pipe(csvParser())
+      .pipe(
+        csvParser({
+          mapHeaders: ({ header }) => {
+            const lowerHeader = String(header).toLowerCase().trim();
+            // First, try a direct match on aliases (very common)
+            const directMatch = schemaSpec.find((field) =>
+              [field.dataElement, ...(field.aliases || [])]
+                .map((a) => a.toLowerCase())
+                .includes(lowerHeader)
+            );
+            if (directMatch) return directMatch.dataElement;
+
+            // If no direct match, use fuzzy search
+            const fuzzyResult = fuse.search(header);
+            if (fuzzyResult.length > 0) {
+              return fuzzyResult[0].item.canonicalName;
+            }
+            return null; // Discard columns that don't match
+          },
+        })
+      )
       .on("data", (data) => results.push(data))
-      .on("end", () => {
-        resolve({ Sheet1: results });
-      })
-      .on("error", (error) => {
-        reject(error);
-      });
+      .on("end", () => resolve({ Sheet1: results }))
+      .on("error", (error) => reject(error));
   });
 }
 
 /**
  * Parses a fixed-width plain text file based on a given schema.
+ * (This function is unchanged as it is position-based, not header-based).
  * @param {Buffer} buffer - The buffer containing the text file content.
  * @param {string} documentType - The type of document ('finishedProduct', 'rawMaterial', 'billOfMaterials').
- * @returns {Promise<Object>} A promise that resolves to an object like { Sheet1: [records] }.
+ * @returns {Promise<Object>} A promise that resolves to { Sheet1: [records] }.
  */
 async function parseTXT(buffer, documentType) {
   const text = buffer.toString("utf8");
   const lines = text.split(/\r?\n/).filter((line) => line.trim() !== "");
-
-  // --- REFACTORED LOGIC ---
-  // Get the schema spec directly from the registry.
   const { schemaSpec } = getRegistryEntry(documentType);
-  // --- END REFACTORED LOGIC ---
 
   const parsedRecords = lines.map((line) => {
     const record = {};
     for (const field of schemaSpec) {
       let rawValue = line.substring(field.start, field.end + 1);
-
-      if (field.dataElement !== "Filler") {
-        rawValue = rawValue.trim();
-      }
-
+      if (field.dataElement !== "Filler") rawValue = rawValue.trim();
       if (rawValue === "") {
         record[field.dataElement] = null;
         continue;
       }
-
       switch (field.type) {
         case "N":
           const num = parseFloat(rawValue);
           record[field.dataElement] = isNaN(num) ? null : num;
           break;
-
         case "D":
           if (rawValue.length === 8 && /^\d{8}$/.test(rawValue)) {
             const year = parseInt(rawValue.substring(0, 4), 10);
             const month = parseInt(rawValue.substring(4, 6), 10) - 1;
             const day = parseInt(rawValue.substring(6, 8), 10);
-
             const date = new Date(year, month, day);
             if (
               date.getFullYear() === year &&
@@ -156,7 +182,6 @@ async function parseTXT(buffer, documentType) {
             record[field.dataElement] = null;
           }
           break;
-
         case "A":
         default:
           record[field.dataElement] = rawValue;

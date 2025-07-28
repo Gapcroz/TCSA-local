@@ -1,3 +1,4 @@
+// services/fileConversionService.js
 const path = require("path");
 const fs = require("fs/promises");
 const { getRegistryEntry } = require("../data/documentTypeRegistry");
@@ -23,7 +24,7 @@ const processFileForConversion = async (
 
   if (!documentType) {
     throw new Error(
-      "Document type (e.g., 'finishedProduct', 'rawMaterial') is required for processing."
+      "Document type (e.g., 'finishedProduct') is required for processing."
     );
   }
 
@@ -32,10 +33,12 @@ const processFileForConversion = async (
   switch (fileExtension) {
     case ".xls":
     case ".xlsx":
-      parsedData = await parseXLSX(fileBuffer);
+      // Pass documentType to the parser for schema lookup
+      parsedData = await parseXLSX(fileBuffer, documentType);
       break;
     case ".csv":
-      parsedData = await parseCSV(fileBuffer);
+      // Pass documentType to the parser for schema lookup
+      parsedData = await parseCSV(fileBuffer, documentType);
       break;
     case ".txt":
       parsedData = await parseTXT(fileBuffer, documentType);
@@ -98,11 +101,7 @@ const processFileForConversion = async (
 
 /**
  * Writes data to a standardized plain text file based on the schema.
- * Each record is a line, with fields at specific positions.
- *
- * @param {Object} data - The processed data, e.g., { Sheet1: [records] }.
- * @param {string} filePath - The path where the file should be written.
- * @param {string} documentType - The type of document to determine the schema.
+ * (This function is unchanged).
  */
 async function writeToStandardizedTXT(data, filePath, documentType) {
   const records = data.Sheet1;
@@ -121,17 +120,16 @@ async function writeToStandardizedTXT(data, filePath, documentType) {
 
       if (value !== null && value !== undefined) {
         if (field.type === "N") {
-          // --- THIS IS THE NEW LOGIC FOR NUMERIC FORMATTING ---
           const num = parseFloat(value);
           if (!isNaN(num)) {
-            // Get decimal precision from the format string (e.g., 8 from 9(08).9(08))
-            const formatMatch = field.format.match(/9\((\d+)\)\.?9?\(?(\d+)?\)?/);
-            const decimalLengthInFormat = formatMatch[2] ? parseInt(formatMatch[2], 10) : 0;
-            
-            // Use toFixed for rounding, then remove trailing zeros and the decimal point if it's a whole number.
-            // Example: 1.00 -> "1.00" -> "1"
-            // Example: 1.230 -> "1.23" -> "1.23"
-            formattedValue = num.toFixed(decimalLengthInFormat).replace(/\.?0+$/, "");
+            const formatMatch =
+              field.format.match(/9\((\d+)\)\.?9?\(?(\d+)?\)?/);
+            const decimalLengthInFormat = formatMatch[2]
+              ? parseInt(formatMatch[2], 10)
+              : 0;
+            formattedValue = num
+              .toFixed(decimalLengthInFormat)
+              .replace(/\.?0+$/, "");
           }
         } else if (field.type === "D") {
           if (value instanceof Date && !isNaN(value)) {
@@ -145,7 +143,6 @@ async function writeToStandardizedTXT(data, filePath, documentType) {
         }
       }
 
-      // Final step: Left-align the value and pad with spaces to the field's exact length.
       formattedValue = formattedValue
         .padEnd(field.length, " ")
         .substring(0, field.length);

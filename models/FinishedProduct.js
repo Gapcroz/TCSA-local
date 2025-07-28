@@ -49,6 +49,7 @@ const finishedProductSchemaSpec = [
   {
     item: 1,
     dataElement: "Part Number",
+    aliases: ["FG Part Number", "Finished Good SKU", "Item Number", "SKU"],
     type: "A",
     length: 30,
     position: "01-30",
@@ -62,6 +63,7 @@ const finishedProductSchemaSpec = [
   {
     item: 2,
     dataElement: "Description",
+    aliases: ["Desc", "Item Description", "Product Description"],
     type: "A",
     length: 60,
     position: "31-90",
@@ -75,6 +77,7 @@ const finishedProductSchemaSpec = [
   {
     item: 3,
     dataElement: "Unit Weight Lb.",
+    aliases: ["Weight", "Unit Weight", "Weight (LBS)"],
     type: "N",
     length: 17,
     position: "91-107",
@@ -88,6 +91,7 @@ const finishedProductSchemaSpec = [
   {
     item: 4,
     dataElement: "Dutiable Value (USD)",
+    aliases: ["Value", "Dutiable Value", "Customs Value"],
     type: "N",
     length: 17,
     position: "108-124",
@@ -101,6 +105,7 @@ const finishedProductSchemaSpec = [
   {
     item: 5,
     dataElement: "Filler",
+    aliases: [],
     type: "A",
     length: 17,
     position: "125-141",
@@ -114,6 +119,7 @@ const finishedProductSchemaSpec = [
   {
     item: 6,
     dataElement: "Added Value (USD)",
+    aliases: ["Added Value", "Value Add"],
     type: "N",
     length: 17,
     position: "142-158",
@@ -127,6 +133,7 @@ const finishedProductSchemaSpec = [
   {
     item: 7,
     dataElement: "Unit of Measure",
+    aliases: ["UOM", "Unit"],
     type: "A",
     length: 3,
     position: "159-161",
@@ -140,6 +147,7 @@ const finishedProductSchemaSpec = [
   {
     item: 8,
     dataElement: "Country of Origin",
+    aliases: ["COO", "Origin"],
     type: "A",
     length: 2,
     position: "162-163",
@@ -153,6 +161,7 @@ const finishedProductSchemaSpec = [
   {
     item: 9,
     dataElement: "USA Importation HTS Code",
+    aliases: ["Import HTS", "US HTS", "HTS Import"],
     type: "A",
     length: 12,
     position: "164-175",
@@ -166,6 +175,7 @@ const finishedProductSchemaSpec = [
   {
     item: 10,
     dataElement: "USA Exportation Code",
+    aliases: ["Export HTS", "Schedule B", "HTS Export"],
     type: "A",
     length: 12,
     position: "176-187",
@@ -179,6 +189,7 @@ const finishedProductSchemaSpec = [
   {
     item: 11,
     dataElement: "FDA Product Code",
+    aliases: ["FDA Code"],
     type: "A",
     length: 7,
     position: "188-194",
@@ -193,6 +204,7 @@ const finishedProductSchemaSpec = [
   {
     item: 12,
     dataElement: "FDA Storage",
+    aliases: ["Storage Condition"],
     type: "A",
     length: 1,
     position: "195-195",
@@ -206,6 +218,7 @@ const finishedProductSchemaSpec = [
   {
     item: 13,
     dataElement: "FDA Country of Origin",
+    aliases: ["FDA COO"],
     type: "A",
     length: 2,
     position: "196-197",
@@ -219,6 +232,7 @@ const finishedProductSchemaSpec = [
   {
     item: 14,
     dataElement: "FDA Marker",
+    aliases: ["FDA Flag"],
     type: "A",
     length: 3,
     position: "198-200",
@@ -232,6 +246,7 @@ const finishedProductSchemaSpec = [
   {
     item: 15,
     dataElement: "FDA Affirmation of Compliance Code 1",
+    aliases: ["FDA AOC Code 1", "AOC Code 1"],
     type: "A",
     length: 3,
     position: "201-203",
@@ -245,6 +260,7 @@ const finishedProductSchemaSpec = [
   {
     item: 16,
     dataElement: "FDA Affirmation of Compliance Qualifier 1",
+    aliases: ["FDA AOC Qualifier 1", "AOC Qualifier 1"],
     type: "A",
     length: 25,
     position: "204-228",
@@ -258,6 +274,7 @@ const finishedProductSchemaSpec = [
   {
     item: 17,
     dataElement: "FDA Affirmation of Compliance Code 2",
+    aliases: ["FDA AOC Code 2", "AOC Code 2"],
     type: "A",
     length: 3,
     position: "229-231",
@@ -271,6 +288,7 @@ const finishedProductSchemaSpec = [
   {
     item: 18,
     dataElement: "FDA Affirmation of Compliance Qualifier 2",
+    aliases: ["FDA AOC Qualifier 2", "AOC Qualifier 2"],
     type: "A",
     length: 25,
     position: "232-256",
@@ -284,6 +302,7 @@ const finishedProductSchemaSpec = [
   {
     item: 19,
     dataElement: "FDA Affirmation of Compliance Code 3",
+    aliases: ["FDA AOC Code 3", "AOC Code 3"],
     type: "A",
     length: 3,
     position: "257-259",
@@ -297,6 +316,7 @@ const finishedProductSchemaSpec = [
   {
     item: 20,
     dataElement: "FDA Affirmation of Compliance Qualifier 3",
+    aliases: ["FDA AOC Qualifier 3", "AOC Qualifier 3"],
     type: "A",
     length: 25,
     position: "260-284",
@@ -310,6 +330,7 @@ const finishedProductSchemaSpec = [
   {
     item: 21,
     dataElement: "FDA Affirmation of Compliance Code 4",
+    aliases: ["FDA AOC Code 4", "AOC Code 4"],
     type: "A",
     length: 3,
     position: "285-287",
@@ -323,6 +344,7 @@ const finishedProductSchemaSpec = [
   {
     item: 22,
     dataElement: "FDA Affirmation of Compliance Qualifier 4",
+    aliases: ["FDA AOC Qualifier 4", "AOC Qualifier 4"],
     type: "A",
     length: 25,
     position: "288-312",
@@ -336,6 +358,7 @@ const finishedProductSchemaSpec = [
   {
     item: 23,
     dataElement: "FDA Affirmation of Compliance Code 5",
+    aliases: ["FDA AOC Code 5", "AOC Code 5"],
     type: "A",
     length: 3,
     position: "313-315",
@@ -349,6 +372,7 @@ const finishedProductSchemaSpec = [
   {
     item: 24,
     dataElement: "FDA Affirmation of Compliance Qualifier 5",
+    aliases: ["FDA AOC Qualifier 5", "AOC Qualifier 5"],
     type: "A",
     length: 25,
     position: "316-340",
@@ -362,6 +386,7 @@ const finishedProductSchemaSpec = [
   {
     item: 25,
     dataElement: "FDA Affirmation of Compliance Code 6",
+    aliases: ["FDA AOC Code 6", "AOC Code 6"],
     type: "A",
     length: 3,
     position: "341-343",
@@ -375,6 +400,7 @@ const finishedProductSchemaSpec = [
   {
     item: 26,
     dataElement: "FDA Affirmation of Compliance Qualifier 6",
+    aliases: ["FDA AOC Qualifier 6", "AOC Qualifier 6"],
     type: "A",
     length: 25,
     position: "344-368",
@@ -388,6 +414,7 @@ const finishedProductSchemaSpec = [
   {
     item: 27,
     dataElement: "NAFTA",
+    aliases: ["NAFTA Eligible"],
     type: "A",
     length: 1,
     position: "369-369",
@@ -401,6 +428,7 @@ const finishedProductSchemaSpec = [
   {
     item: 28,
     dataElement: "Preference Criterion",
+    aliases: ["NAFTA Criterion"],
     type: "A",
     length: 1,
     position: "370-370",
@@ -415,6 +443,7 @@ const finishedProductSchemaSpec = [
   {
     item: 29,
     dataElement: "Producer",
+    aliases: ["NAFTA Producer"],
     type: "A",
     length: 6,
     position: "371-376",
@@ -429,6 +458,7 @@ const finishedProductSchemaSpec = [
   {
     item: 30,
     dataElement: "Net Cost",
+    aliases: ["NAFTA Net Cost"],
     type: "A",
     length: 2,
     position: "377-378",
@@ -443,6 +473,7 @@ const finishedProductSchemaSpec = [
   {
     item: 31,
     dataElement: "Period (From)",
+    aliases: ["NAFTA From", "Start Date"],
     type: "D",
     length: 10,
     position: "379-388",
@@ -457,6 +488,7 @@ const finishedProductSchemaSpec = [
   {
     item: 32,
     dataElement: "Period (To)",
+    aliases: ["NAFTA To", "End Date"],
     type: "D",
     length: 10,
     position: "389-398",
@@ -471,6 +503,7 @@ const finishedProductSchemaSpec = [
   {
     item: 33,
     dataElement: "USML (ITAR)",
+    aliases: ["USML", "ITAR"],
     type: "A",
     length: 20,
     position: "399-418",

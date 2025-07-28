@@ -47,6 +47,13 @@ const billOfMaterialsSchemaSpec = [
   {
     item: 1,
     dataElement: "Finished Good Part Number",
+    aliases: [
+      "FG Part Number",
+      "Parent Part Number",
+      "Parent SKU",
+      "Assembly SKU",
+      "Finished Good SKU",
+    ],
     type: "A",
     length: 30,
     position: "01-30",
@@ -60,6 +67,12 @@ const billOfMaterialsSchemaSpec = [
   {
     item: 2,
     dataElement: "Component Part Number",
+    aliases: [
+      "Component SKU",
+      "Child Part Number",
+      "Raw Material Part Number",
+      "RM Part Number",
+    ],
     type: "A",
     length: 30,
     position: "31-60",
@@ -74,6 +87,7 @@ const billOfMaterialsSchemaSpec = [
   {
     item: 3,
     dataElement: "Type",
+    aliases: ["Component Type", "Item Type"],
     type: "A",
     length: 1,
     position: "61",
@@ -88,6 +102,7 @@ const billOfMaterialsSchemaSpec = [
   {
     item: 4,
     dataElement: "Quantity",
+    aliases: ["Qty", "BOM Quantity", "Quantity Per"],
     type: "N",
     length: 17,
     position: "62-78",
@@ -102,6 +117,7 @@ const billOfMaterialsSchemaSpec = [
   {
     item: 5,
     dataElement: "Unit of Measure",
+    aliases: ["UOM", "Unit"],
     type: "A",
     length: 3,
     position: "79-81",
@@ -116,6 +132,7 @@ const billOfMaterialsSchemaSpec = [
   {
     item: 6,
     dataElement: "Component classification",
+    aliases: ["Classification", "Component Class"],
     type: "A",
     length: 20,
     position: "82-101",

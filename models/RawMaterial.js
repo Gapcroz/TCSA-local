@@ -47,6 +47,7 @@ const rawMaterialSchemaSpec = [
   {
     item: 1,
     dataElement: "Part Number",
+    aliases: ["Part No", "Part #", "SKU", "Item Number", "Material Code"],
     type: "A",
     length: 30,
     position: "01-30",
@@ -60,6 +61,7 @@ const rawMaterialSchemaSpec = [
   {
     item: 2,
     dataElement: "Description",
+    aliases: ["Desc", "Item Description", "Material Description"],
     type: "A",
     length: 60,
     position: "31-90",
@@ -73,6 +75,7 @@ const rawMaterialSchemaSpec = [
   {
     item: 3,
     dataElement: "Unit Weight Lb.",
+    aliases: ["Weight", "Unit Weight", "Weight (LBS)", "LBS"],
     type: "N",
     length: 17,
     position: "91-107",
@@ -85,7 +88,8 @@ const rawMaterialSchemaSpec = [
   },
   {
     item: 4,
-    dataElement: "Unit Cost (UDS)",
+    dataElement: "Unit Cost (USD)",
+    aliases: ["Unit Value (USD)","Unit value","Cost", "Unit Cost", "Price", "Unit Price", "Cost (USD)"],
     type: "N",
     length: 17,
     position: "108-124",
@@ -99,6 +103,7 @@ const rawMaterialSchemaSpec = [
   {
     item: 5,
     dataElement: "Unit of measure",
+    aliases: ["UOM", "Unit"],
     type: "A",
     length: 3,
     position: "125-127",
@@ -112,6 +117,7 @@ const rawMaterialSchemaSpec = [
   {
     item: 6,
     dataElement: "Country of origin",
+    aliases: ["COO", "Origin", "Country"],
     type: "A",
     length: 2,
     position: "128-129",
@@ -125,6 +131,7 @@ const rawMaterialSchemaSpec = [
   {
     item: 7,
     dataElement: "Importation HTS Code",
+    aliases: ["US IMP HTS Code","HTS Import", "Import HTS", "HTS Code (Import)"],
     type: "A",
     length: 12,
     position: "130-141",
@@ -139,6 +146,7 @@ const rawMaterialSchemaSpec = [
   {
     item: 8,
     dataElement: "Exportation HTS Code",
+    aliases: ["US EXP HTS Code","HTS Export", "Export HTS", "HTS Code (Export)", "Schedule B"],
     type: "A",
     length: 12,
     position: "142-153",
@@ -153,6 +161,7 @@ const rawMaterialSchemaSpec = [
   {
     item: 9,
     dataElement: "ECCN",
+    aliases: ["ECCN Number"],
     type: "A",
     length: 10,
     position: "154-163",
@@ -166,6 +175,7 @@ const rawMaterialSchemaSpec = [
   {
     item: 10,
     dataElement: "Filler",
+    aliases: [], // No aliases needed for a filler field
     type: "A",
     length: 20,
     position: "164-183",
@@ -179,6 +189,7 @@ const rawMaterialSchemaSpec = [
   {
     item: 11,
     dataElement: "License Number (LCN)",
+    aliases: ["License No", "LCN", "License #"],
     type: "A",
     length: 20,
     position: "184-203",
@@ -192,6 +203,7 @@ const rawMaterialSchemaSpec = [
   {
     item: 12,
     dataElement: "License Exception",
+    aliases: ["Lic Exception", "Exception"],
     type: "A",
     length: 20,
     position: "204-223",
@@ -205,6 +217,7 @@ const rawMaterialSchemaSpec = [
   {
     item: 13,
     dataElement: "License Expiration date",
+    aliases: ["Lic Exp Date", "Expiration Date", "Expires On"],
     type: "D",
     length: 8,
     position: "224-231",
@@ -218,6 +231,7 @@ const rawMaterialSchemaSpec = [
   {
     item: 14,
     dataElement: "USML (ITAR)",
+    aliases: ["USML", "ITAR"],
     type: "A",
     length: 20,
     position: "232-251",
@@ -233,6 +247,8 @@ const rawMaterialSchemaSpec = [
 
 const rawMaterialMongooseSchema = new mongoose.Schema({});
 rawMaterialSchemaSpec.forEach((field) => {
+  // The dataElement name must not have spaces for Mongoose keys
+  const key = field.dataElement.replace(/\s+/g, "");
   rawMaterialMongooseSchema.add({
     [field.dataElement]: createSchemaField(field),
   });
