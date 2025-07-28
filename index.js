@@ -19,7 +19,7 @@ const authRoutes = require('./routes/authRoutes');
 const fileRoutes = require('./routes/fileRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const userRoutes = require('./routes/userRoutes');
-
+const jobRoutes = require("./routes/jobRoutes"); 
 // Import authentication/authorization middleware (assuming these exist from version 2)
 const { authenticateRequest, ensureAdmin } = require('./middleware/authMiddleware');
 
@@ -157,7 +157,7 @@ app.use('/auth', authRoutes);
 // API routes for file operations (upload, download, error reports)
 // Applying authenticateRequest middleware as in version 2
 app.use('/api/files', authenticateRequest, fileRoutes);
-
+app.use("/api", authenticateRequest,jobRoutes);
 // API routes for user-specific data (profile, set password, unlink Google)
 // Applying authenticateRequest middleware as in version 2
 app.use('/api/user', authenticateRequest, userRoutes);

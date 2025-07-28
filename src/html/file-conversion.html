@@ -1,4 +1,3 @@
-<!-- src/html/file-conversion.html -->
 <!DOCTYPE html>
 <html lang="es">
   <head>
@@ -12,6 +11,7 @@
     <div class="container">
       <h1>Conversión de Archivos API</h1>
 
+      <!-- REVERTED: Back to the original, simple file input -->
       <div class="form-group">
         <label for="fileInput">Seleccionar Archivo:</label>
         <input type="file" id="fileInput" accept=".xls,.xlsx,.csv,.txt" />
@@ -20,13 +20,11 @@
       <div class="form-group">
         <label for="outputFormat">Formato de Salida:</label>
         <select id="outputFormat">
-          <!-- Only 'txt' output is supported now -->
           <option value="txt">Standardized TXT</option>
         </select>
       </div>
 
-      <!-- Document Type selection for TXT files (still relevant for input TXT) -->
-      <div class="form-group" id="documentTypeGroup" style="display: none;">
+      <div class="form-group" id="documentTypeGroup" style="display: none">
         <label for="documentType">Tipo de Documento (Para TXT):</label>
         <select id="documentType">
           <option value="">-- Seleccione el tipo --</option>
@@ -36,8 +34,16 @@
         </select>
       </div>
 
-      <button id="uploadButton">Subir y Convertir</button>
+      <button id="uploadButton">
+        <span class="btn-text">Subir y Convertir</span>
+        <span class="spinner hidden"></span>
+      </button>
+
+      <!-- This message is now a fallback, the result box is primary -->
       <p id="uploadMessage" class="message"></p>
+
+      <!-- This result box will now be used for ALL outcomes -->
+      <div id="uploadResult" class="conversion-result hidden"></div>
 
       <h2>Historial de Conversiones</h2>
       <div id="conversionJobsList">
