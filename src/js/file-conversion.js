@@ -1,4 +1,5 @@
 document.addEventListener("DOMContentLoaded", async () => {
+  // Element Selections
   const fileInput = document.getElementById("fileInput");
   const outputFormatSelect = document.getElementById("outputFormat");
   const documentTypeSelect = document.getElementById("documentType");
@@ -8,8 +9,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   const uploadResultDiv = document.getElementById("uploadResult");
   const conversionJobsList = document.getElementById("conversionJobsList");
   const adminLink = document.getElementById("adminLink");
+  const paginationControls = document.getElementById("paginationControls");
+  const prevPageBtn = document.getElementById("prevPageBtn");
+  const nextPageBtn = document.getElementById("nextPageBtn");
+  const pageInfo = document.getElementById("pageInfo");
 
-  // Helper to manage button state
+  // State Management
+  let currentPage = 1;
+  const jobsPerPage = 10; // Or any number you prefer
+
+  // --- Helper Functions ---
+
+  // Manages the loading state of the upload button
   const setButtonLoading = (isLoading) => {
     const btnText = uploadButton.querySelector(".btn-text");
     const spinner = uploadButton.querySelector(".spinner");
@@ -18,7 +29,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     spinner.classList.toggle("hidden", !isLoading);
   };
 
-  // Helper to display the final result in its own dedicated div
+  // Displays the result of a successful or partially successful conversion
   const displayUploadResult = (result) => {
     uploadResultDiv.innerHTML = "";
     uploadResultDiv.className = "conversion-result"; // Reset classes
@@ -49,10 +60,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     uploadResultDiv.classList.remove("hidden");
   };
 
-  // Helper to display critical API errors in the result box
+  // Displays critical API or network errors in the result box
   const displayApiError = (errorMessage) => {
     uploadResultDiv.innerHTML = "";
-    uploadResultDiv.className = "conversion-result error"; // Reset and add error class
+    uploadResultDiv.className = "conversion-result error";
     uploadResultDiv.innerHTML = `
       <h4>Error en la Solicitud</h4>
       <p>${
@@ -62,6 +73,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     uploadResultDiv.classList.remove("hidden");
   };
 
+  // Checks if the user is an admin to show the admin link
   const checkAdminStatus = async () => {
     try {
       const response = await fetch("/auth/check-admin");
@@ -74,9 +86,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   };
 
-  await checkAdminStatus();
-  fetchConversionJobs();
+  // Updates the pagination controls based on API response
+  const updatePaginationControls = (data) => {
+    if (data.totalPages <= 1) {
+      paginationControls.classList.add("hidden");
+      return;
+    }
+    pageInfo.textContent = `Página ${data.currentPage} de ${data.totalPages}`;
+    prevPageBtn.disabled = data.currentPage <= 1;
+    nextPageBtn.disabled = data.currentPage >= data.totalPages;
+    paginationControls.classList.remove("hidden");
+  };
 
+  // --- Main Logic and Event Listeners ---
+
+  // Initial setup
+  await checkAdminStatus();
+  fetchConversionJobs(currentPage);
+
+  // Show/hide document type dropdown based on file extension
   fileInput.addEventListener("change", () => {
     const fileName = fileInput.files[0] ? fileInput.files[0].name : "";
     const fileExtension = fileName.split(".").pop().toLowerCase();
@@ -84,16 +112,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       documentTypeGroup.style.display = "block";
     } else {
       documentTypeGroup.style.display = "none";
-      documentTypeSelect.value = ""; // Reset selection
+      documentTypeSelect.value = "";
     }
   });
 
+  // Handle file upload and conversion
   uploadButton.addEventListener("click", async () => {
     const file = fileInput.files[0];
     const outputFormat = outputFormatSelect.value;
     const documentType = documentTypeSelect.value;
 
-    // Hide previous results and messages on new attempt
     uploadMessage.textContent = "";
     uploadResultDiv.classList.add("hidden");
 
@@ -131,18 +159,17 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
 
       const result = await response.json();
-      uploadMessage.textContent = ""; // Clear "in progress" message
+      uploadMessage.textContent = "";
 
       if (response.ok) {
         displayUploadResult(result);
-        fileInput.value = ""; // Clear the file input
-        fetchConversionJobs(result.jobId); // Refresh list and highlight new job
+        fileInput.value = "";
+        currentPage = 1; // Reset to first page to show the new job
+        fetchConversionJobs(currentPage, result.jobId);
       } else {
-        // Use the new error display for 4xx/5xx errors
         displayApiError(result.message);
       }
     } catch (error) {
-      // Use the new error display for network errors
       uploadMessage.textContent = "";
       displayApiError("Error de red o el servidor no responde.");
       console.error("Fetch error:", error);
@@ -151,26 +178,46 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  async function fetchConversionJobs(newJobId = null) {
+  // Pagination button listeners
+  prevPageBtn.addEventListener("click", () => {
+    if (currentPage > 1) {
+      currentPage--;
+      fetchConversionJobs(currentPage);
+    }
+  });
+
+  nextPageBtn.addEventListener("click", () => {
+    currentPage++;
+    fetchConversionJobs(currentPage);
+  });
+
+  // Fetches and displays a page of conversion jobs
+  async function fetchConversionJobs(page, newJobId = null) {
     try {
-      // This endpoint now exists and will be created below
-      const response = await fetch("/api/conversion-jobs", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
+      const response = await fetch(
+        `/api/conversion-jobs?page=${page}&limit=${jobsPerPage}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
       if (!response.ok) {
         throw new Error("Failed to fetch job history.");
       }
-      const jobs = await response.json();
+      const data = await response.json();
+      const { jobs } = data;
 
       conversionJobsList.innerHTML = "";
 
       if (jobs.length === 0) {
+        paginationControls.classList.add("hidden");
         conversionJobsList.innerHTML =
           '<p class="no-jobs">No hay trabajos de conversión aún.</p>';
         return;
       }
+
+      updatePaginationControls(data);
 
       jobs.forEach((job) => {
         const jobElement = document.createElement("div");
@@ -220,7 +267,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         conversionJobsList.appendChild(jobElement);
       });
 
-      // Add event listeners for download buttons
       conversionJobsList.querySelectorAll(".download-btn").forEach((button) => {
         button.addEventListener("click", (e) => {
           const jobId = e.target.dataset.jobId;
@@ -235,7 +281,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
       });
 
-      // Remove highlight after a delay
       if (newJobId) {
         setTimeout(() => {
           const newJobElement = conversionJobsList.querySelector(".new-job");
@@ -246,6 +291,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     } catch (error) {
       console.error("Error fetching conversion jobs:", error);
+      paginationControls.classList.add("hidden");
       conversionJobsList.innerHTML =
         '<p class="no-jobs error-message">Error loading conversion history.</p>';
     }

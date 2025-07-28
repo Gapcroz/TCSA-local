@@ -49,7 +49,12 @@
       <div id="conversionJobsList">
         <p class="no-jobs">No hay trabajos de conversión aún.</p>
       </div>
-
+      <!-- NEW: Pagination Controls -->
+      <div id="paginationControls" class="pagination-controls hidden">
+        <button id="prevPageBtn">&laquo; Anterior</button>
+        <span id="pageInfo"></span>
+        <button id="nextPageBtn">Siguiente &raquo;</button>
+      </div>
       <div class="dashboard-nav">
         <a href="/auth/dashboard" class="button">Volver al Dashboard</a>
         <a href="/admin-dashboard" id="adminLink" class="admin-link hidden"

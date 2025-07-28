@@ -1,16 +1,17 @@
 const ConversionJob = require("../models/ConversionJob");
 
+// createConversionJob and getConversionJobById remain the same...
 const createConversionJob = async ({
-  userId, // Can be null for automated jobs
+  userId,
   fileName,
   originalFilePath,
   outputFormat,
   conversionOptions,
   status,
-  isAutomated = false, // Default to false
+  isAutomated = false,
 }) => {
   const newJob = new ConversionJob({
-    userId, // Will be null if not provided
+    userId,
     fileName,
     originalFilePath,
     outputFormat,
@@ -26,25 +27,46 @@ const getConversionJobById = async (jobId) => {
 };
 
 /**
- * NEW: Finds all conversion jobs associated with a specific user ID.
- * @param {string} userId - The ID of the user.
- * @returns {Promise<Array>} A promise that resolves to an array of job documents.
+ * UPDATED: Finds paginated conversion jobs for a specific user ID.
  */
-const getJobsByUserId = async (userId) => {
-  // Find all jobs where the userId field matches the provided ID.
-  return await ConversionJob.find({ userId: userId });
+const getPaginatedJobsByUserId = async (userId, page = 1, limit = 10) => {
+  const skip = (page - 1) * limit;
+  const query = { userId: userId };
+
+  // Execute queries in parallel for efficiency
+  const [jobs, totalJobs] = await Promise.all([
+    ConversionJob.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    ConversionJob.countDocuments(query),
+  ]);
+
+  return {
+    jobs,
+    totalJobs,
+    currentPage: page,
+    totalPages: Math.ceil(totalJobs / limit),
+  };
 };
 
 /**
- * NEW: Finds all conversion jobs in the database.
- * Intended for admin use.
- * @returns {Promise<Array>} A promise that resolves to an array of all job documents.
+ * UPDATED: Finds all paginated conversion jobs in the database (for admins).
  */
-const getAllJobs = async () => {
-  // Find all documents in the collection.
-  return await ConversionJob.find({});
+const getPaginatedAllJobs = async (page = 1, limit = 10) => {
+  const skip = (page - 1) * limit;
+
+  const [jobs, totalJobs] = await Promise.all([
+    ConversionJob.find({}).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    ConversionJob.countDocuments({}),
+  ]);
+
+  return {
+    jobs,
+    totalJobs,
+    currentPage: page,
+    totalPages: Math.ceil(totalJobs / limit),
+  };
 };
 
+// updateConversionJobStatus remains the same...
 const updateConversionJobStatus = async (
   jobId,
   status,
@@ -72,6 +94,6 @@ module.exports = {
   createConversionJob,
   getConversionJobById,
   updateConversionJobStatus,
-  getJobsByUserId, // <-- EXPORT THE NEW FUNCTION
-  getAllJobs, // <-- EXPORT THE NEW FUNCTION
+  getPaginatedJobsByUserId, // <-- EXPORT THE PAGINATED FUNCTION
+  getPaginatedAllJobs, // <-- EXPORT THE PAGINATED FUNCTION
 };
