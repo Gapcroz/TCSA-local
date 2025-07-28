@@ -67,7 +67,7 @@ const processFileForConversion = async (
   }
 
   // Step 4: Generation of the standardized plain text file
-  const outputFileName = `${path.parse(originalName).name}-converted.txt`;
+  const outputFileName = `${path.parse(originalName).name}`;
   const outputFilePath = path.join(
     __dirname,
     "..",
