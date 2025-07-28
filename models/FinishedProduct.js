@@ -161,7 +161,7 @@ const finishedProductSchemaSpec = [
   {
     item: 9,
     dataElement: "USA Importation HTS Code",
-    aliases: ["Import HTS", "US HTS", "HTS Import"],
+    aliases: ["Import HTS","US IMP", "US IMP HTS Code", "HTS Import"],
     type: "A",
     length: 12,
     position: "164-175",
@@ -175,7 +175,7 @@ const finishedProductSchemaSpec = [
   {
     item: 10,
     dataElement: "USA Exportation Code",
-    aliases: ["Export HTS", "Schedule B", "HTS Export"],
+    aliases: ["Export HTS","US EXP","US EXP HTS Code", "Schedule B", "HTS Export"],
     type: "A",
     length: 12,
     position: "176-187",
