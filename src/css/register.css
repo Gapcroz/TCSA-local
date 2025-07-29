@@ -1,0 +1,44 @@
+/* register.css */
+body {
+  background-color: #f5fbf8; /* Light green-blue tint */
+}
+.container {
+  width: 420px;
+  padding: 45px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.09);
+}
+h1 {
+  color: #28a745; /* Green header for registration */
+  margin-bottom: 35px;
+  font-size: 2.2em;
+}
+.register-form input {
+  margin-bottom: 20px;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 1.05em;
+}
+.register-form button {
+  width: 100%;
+  padding: 15px;
+  font-size: 1.1em;
+  border-radius: 8px;
+  background-color: #007bff;
+}
+.register-form button:hover {
+  background-color: #0056b3;
+}
+.login-link-container {
+  margin-top: 25px;
+  font-size: 0.95em;
+  color: #666;
+}
+.login-link-container a {
+  color: #007bff;
+  text-decoration: none;
+  font-weight: 600;
+}
+.login-link-container a:hover {
+  text-decoration: underline;
+}

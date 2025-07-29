@@ -1,0 +1,30 @@
+/* access-pending.css */
+body {
+  background-color: #fefcf3; /* Lighter, softer yellow */
+}
+.container {
+  width: 480px;
+  padding: 50px;
+  border: 1px solid #ffeeba;
+  box-shadow: 0 4px 10px rgba(255, 193, 7, 0.2);
+}
+h1 {
+  color: #ffc107; /* Warning yellow */
+  margin-bottom: 25px;
+  font-size: 2em;
+}
+.access-pending-container p {
+  color: #6a6a6a;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+.home-btn {
+  background-color: #007bff;
+  padding: 12px 30px;
+  font-size: 1.1em;
+  border-radius: 8px;
+}
+.home-btn:hover {
+  background-color: #0056b3;
+  transform: translateY(-2px);
+}

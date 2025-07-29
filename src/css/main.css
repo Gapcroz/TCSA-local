@@ -1,0 +1,195 @@
+/* main.css */
+body {
+  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  margin: 0;
+  color: #333;
+  background-color: #f5f8fb; /* Default light background */
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.container {
+  background-color: #fff;
+  padding: 45px;
+  border-radius: 12px;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+  text-align: center;
+  max-width: 90%;
+  box-sizing: border-box;
+}
+
+h1 {
+  margin-bottom: 30px;
+  font-size: 2em;
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+h2 {
+  color: #444;
+  margin-top: 35px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+  text-align: left;
+  font-size: 1.6em;
+  font-weight: 500;
+}
+
+h3 {
+  color: #555;
+  margin-top: 25px;
+  margin-bottom: 15px;
+  font-size: 1.3em;
+  text-align: left;
+  font-weight: 500;
+}
+
+p {
+  font-size: 1.05em;
+  margin-bottom: 10px;
+  text-align: left;
+  line-height: 1.6;
+}
+
+/* Form Inputs */
+input[type='email'],
+input[type='password'],
+input[type='text'],
+input[type='file'],
+select {
+  width: calc(100% - 24px); /* Account for padding and border */
+  padding: 14px;
+  margin-bottom: 18px;
+  border: 1px solid #dcdcdc;
+  border-radius: 8px;
+  font-size: 1em;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+input[type='email']:focus,
+input[type='password']:focus,
+input[type='text']:focus,
+input[type='file']:focus,
+select:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+  outline: none;
+}
+
+/* Buttons */
+button,
+.button {
+  background-color: #007bff;
+  color: white;
+  padding: 13px 25px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: 500;
+  transition: background-color 0.3s ease, transform 0.2s ease,
+    box-shadow 0.2s ease;
+  text-decoration: none;
+  display: inline-block;
+  box-shadow: 0 2px 5px rgba(0, 123, 255, 0.2);
+}
+button:hover,
+.button:hover {
+  background-color: #0056b3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+}
+button:active,
+.button:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(0, 123, 255, 0.2);
+}
+
+/* Message Styles */
+.message {
+  margin-top: 20px;
+  padding: 15px;
+  border-radius: 8px;
+  font-size: 0.95em;
+  display: none;
+  text-align: center;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.error {
+  color: #dc3545;
+  background-color: #fef1f2;
+  border: 1px solid #f5c6cb;
+}
+.success {
+  color: #28a745;
+  background-color: #eafdeb;
+  border: 1px solid #c3e6cb;
+}
+.info {
+  color: #007bff;
+  background-color: #eaf4ff;
+  border: 1px solid #b3d7ff;
+}
+
+/* Utilities */
+.hidden {
+  display: none !important;
+}
+
+/* Navigation for dashboards */
+.dashboard-nav {
+  margin-top: 40px;
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+.dashboard-nav a,
+.dashboard-nav button {
+  background-color: #6c757d;
+  color: white;
+  padding: 12px 22px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 0.95em;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  border: none; /* Ensure buttons don't have default button border */
+  cursor: pointer;
+}
+.dashboard-nav a:hover,
+.dashboard-nav button:hover {
+  background-color: #5a6268;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 7px rgba(0, 0, 0, 0.15);
+}
+.dashboard-nav .logout-btn {
+  background-color: #dc3545;
+  box-shadow: 0 2px 5px rgba(220, 53, 69, 0.2);
+}
+.dashboard-nav .logout-btn:hover {
+  background-color: #c82333;
+  box-shadow: 0 3px 7px rgba(220, 53, 69, 0.3);
+}
+.dashboard-nav .api-link {
+  background-color: #17a2b8;
+  box-shadow: 0 2px 5px rgba(23, 162, 184, 0.2);
+}
+.dashboard-nav .api-link:hover {
+  background-color: #138496;
+  box-shadow: 0 3px 7px rgba(23, 162, 184, 0.3);
+}
+.dashboard-nav .admin-link {
+  background-color: #20c997;
+  box-shadow: 0 2px 5px rgba(32, 201, 151, 0.2);
+}
+.dashboard-nav .admin-link:hover {
+  background-color: #17a689;
+  box-shadow: 0 3px 7px rgba(32, 201, 151, 0.3);
+}

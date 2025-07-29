@@ -1,0 +1,97 @@
+/* admin.css */
+body {
+  background-color: #eaf3fd; /* Softer bluish background for admin */
+}
+.container {
+  width: 900px;
+  padding: 40px;
+}
+h1 {
+  color: #007bff;
+  margin-bottom: 30px;
+  font-size: 2.2em;
+}
+.admin-message {
+  margin-bottom: 25px;
+}
+.users-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-top: 30px;
+  text-align: left;
+  border-radius: 8px;
+  overflow: hidden; /* Ensures rounded corners apply to borders */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+.users-table th,
+.users-table td {
+  padding: 15px 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+.users-table th {
+  background-color: #f8faff;
+  font-weight: bold;
+  color: #444;
+  text-transform: uppercase;
+  font-size: 0.95em;
+}
+.users-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.users-table tr:hover {
+  background-color: #fbfdff;
+}
+.users-table td select,
+.users-table td input[type='checkbox'] {
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #bbb;
+  vertical-align: middle;
+  font-size: 0.95em;
+  transition: border-color 0.2s;
+}
+.users-table td select:focus,
+.users-table td input[type='checkbox']:focus {
+  border-color: #007bff;
+  outline: none;
+}
+.users-table td label {
+  vertical-align: middle;
+  margin-left: 8px;
+  cursor: pointer;
+}
+.users-table td button {
+  background-color: #007bff;
+  color: white;
+  padding: 9px 18px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+.users-table td button:hover {
+  background-color: #0056b3;
+  transform: translateY(-1px);
+}
+.users-table td button.save-btn {
+  background-color: #28a745;
+}
+.users-table td button.save-btn:hover {
+  background-color: #218838;
+}
+.status-active {
+  color: #28a745;
+  font-weight: bold;
+}
+.status-inactive {
+  color: #dc3545;
+  font-weight: bold;
+}
+.no-users {
+  color: #777;
+  padding: 30px;
+  text-align: center;
+  font-style: italic;
+}

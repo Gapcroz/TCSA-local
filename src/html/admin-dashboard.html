@@ -1,0 +1,47 @@
+<!-- src/html/admin-dashboard.html -->
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Panel de Administración</title>
+    <link rel="stylesheet" href="../css/main.css" />
+    <link rel="stylesheet" href="../css/admin.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Panel de Administración de Usuarios</h1>
+
+      <p id="adminMessage" class="message admin-message"></p>
+
+      <h2>Gestión de Usuarios</h2>
+      <table class="users-table">
+        <thead>
+          <tr>
+            <th>Email / Nombre</th>
+            <th>Rol</th>
+            <th>Acceso API</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="usersTableBody">
+          <tr>
+            <td colspan="4" class="no-users">Cargando usuarios...</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="dashboard-nav">
+        <a href="/auth/dashboard" class="button">Volver al Dashboard</a>
+        <button
+          onclick="window.location.href='/auth/logout'"
+          class="logout-btn"
+        >
+          Cerrar Sesión
+        </button>
+      </div>
+    </div>
+
+    <script type="module" src="../js/admin-dashboard.js"></script>
+  </body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Conversión de Archivos</title>
+    <link rel="stylesheet" href="../css/main.css" />
+    <link rel="stylesheet" href="../css/file-conversion.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Conversión de Archivos API</h1>
+
+      <!-- REVERTED: Back to the original, simple file input -->
+      <div class="form-group">
+        <label for="fileInput">Seleccionar Archivo:</label>
+        <input type="file" id="fileInput" accept=".xls,.xlsx,.csv,.txt" />
+      </div>
+
+      <div class="form-group">
+        <label for="outputFormat">Formato de Salida:</label>
+        <select id="outputFormat">
+          <option value="txt">Standardized TXT</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="documentTypeGroup" style="display: none">
+        <label for="documentType">Tipo de Documento (Para TXT):</label>
+        <select id="documentType">
+          <option value="">-- Seleccione el tipo --</option>
+          <option value="finishedProduct">Finished Product</option>
+          <option value="rawMaterial">Raw Material</moption>
+          <option value="billOfMaterials">Bill of Materials</option>
+        </select>
+      </div>
+
+      <button id="uploadButton">
+        <span class="btn-text">Subir y Convertir</span>
+        <span class="spinner hidden"></span>
+      </button>
+
+      <!-- This message is now a fallback, the result box is primary -->
+      <p id="uploadMessage" class="message"></p>
+
+      <!-- This result box will now be used for ALL outcomes -->
+      <div id="uploadResult" class="conversion-result hidden"></div>
+
+      <h2>Historial de Conversiones</h2>
+      <div id="conversionJobsList">
+        <p class="no-jobs">No hay trabajos de conversión aún.</p>
+      </div>
+      <!-- NEW: Pagination Controls -->
+      <div id="paginationControls" class="pagination-controls hidden">
+        <button id="prevPageBtn">&laquo; Anterior</button>
+        <span id="pageInfo"></span>
+        <button id="nextPageBtn">Siguiente &raquo;</button>
+      </div>
+      <div class="dashboard-nav">
+        <a href="/auth/dashboard" class="button">Volver al Dashboard</a>
+        <a href="/admin-dashboard" id="adminLink" class="admin-link hidden"
+          >Panel de Administración</a
+        >
+        <button
+          onclick="window.location.href='/auth/logout'"
+          class="logout-btn"
+        >
+          Cerrar Sesión
+        </button>
+      </div>
+    </div>
+
+    <script type="module" src="../js/file-conversion.js"></script>
+  </body>
+</html>

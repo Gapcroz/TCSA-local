@@ -1,0 +1,223 @@
+/* file-conversion.css */
+body {
+  background-color: #e6f7ff; /* Same as dashboard for consistency */
+}
+.container {
+  width: 800px; /* Increased width for better layout */
+  align-items: center;
+  padding: 40px;
+}
+h1 {
+  color: #007bff;
+  margin-bottom: 30px;
+  font-size: 2.2em;
+}
+.form-group {
+  margin-bottom: 25px;
+  text-align: left;
+  width: 100%;
+}
+.form-group label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: bold;
+  color: #333;
+  font-size: 1.05em;
+}
+/* The default input styling from main.css will now correctly apply */
+.form-group input[type='file'],
+.form-group select {
+  width: calc(100% - 24px);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 1em;
+  background-color: #fdfdff;
+}
+
+/* Spinner for upload button */
+#uploadButton {
+  position: relative;
+  min-width: 180px;
+}
+.spinner {
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top: 3px solid #fff;
+  width: 20px;
+  height: 20px;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+}
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Conversion Result Box Styles */
+.conversion-result {
+  padding: 20px;
+  margin-top: 25px;
+  border-radius: 8px;
+  text-align: left;
+  border: 1px solid transparent;
+}
+.conversion-result.success {
+  background-color: #eafdeb;
+  border-color: #c3e6cb;
+  color: #28a745;
+}
+.conversion-result.warning {
+  background-color: #fff8e1;
+  border-color: #ffecb3;
+  color: #f57c00;
+}
+/* NEW: Style for critical API errors (4xx, 5xx, network) */
+.conversion-result.error {
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+  color: #721c24;
+}
+.conversion-result h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 1.2em;
+}
+.conversion-result p {
+  margin-bottom: 15px;
+}
+.result-actions a {
+  margin-right: 15px;
+  color: #007bff;
+  text-decoration: none;
+  font-weight: bold;
+}
+.result-actions a:hover {
+  text-decoration: underline;
+}
+
+h2 {
+  margin-top: 40px;
+  margin-bottom: 25px;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+  width: 100%; /* Ensure h2 takes full width */
+}
+
+.conversion-job {
+  display: grid; /* Use Grid for better alignment */
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+  align-items: center;
+  padding: 20px;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  background-color: #fefefe;
+  font-size: 0.95em;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  transition: background-color 0.5s ease;
+}
+/* Highlight for new jobs */
+.conversion-job.new-job {
+  background-color: #e6f7ff;
+  border-color: #007bff;
+}
+.conversion-job > div {
+  text-align: left;
+  word-break: break-word;
+}
+.conversion-job .job-label {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 4px;
+  color: #555;
+  font-size: 0.9em;
+}
+.conversion-job .status-badge {
+  padding: 6px 12px;
+  border-radius: 16px; /* Pill shape */
+  font-weight: bold;
+  color: white;
+  text-align: center;
+  font-size: 0.85em;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: inline-block;
+}
+.conversion-job .status-processing {
+  background-color: #ffc107;
+}
+.conversion-job .status-completed {
+  background-color: #28a745;
+}
+.conversion-job .status-completed_with_errors {
+  background-color: #fd7e14; /* Orange-red for partial success */
+}
+.conversion-job .status-failed {
+  background-color: #dc3545;
+}
+.conversion-job .job-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  grid-column: 1 / -1; /* Make actions span full width */
+  margin-top: 10px;
+}
+.conversion-job .job-actions button {
+  padding: 8px 15px;
+  font-size: 0.9em;
+  border-radius: 6px;
+}
+.conversion-job .job-actions button.download-btn {
+  background-color: #17a2b8;
+}
+.conversion-job .job-actions button.download-btn:hover {
+  background-color: #138496;
+}
+.conversion-job .job-actions button.error-btn {
+  background-color: #6c757d;
+}
+.conversion-job .job-actions button.error-btn:hover {
+  background-color: #5a6268;
+}
+.no-jobs {
+  color: #777;
+  margin-top: 20px;
+  text-align: center;
+  font-style: italic;
+}
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 25px;
+  gap: 15px;
+}
+.pagination-controls button {
+  background-color: #6c757d;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.pagination-controls button:hover:not(:disabled) {
+  background-color: #5a6268;
+}
+.pagination-controls button:disabled {
+  background-color: #c0c0c0;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.pagination-controls #pageInfo {
+  font-weight: 500;
+  color: #333;
+  font-size: 1em;
+}

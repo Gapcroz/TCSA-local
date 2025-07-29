@@ -1,0 +1,52 @@
+<!-- src/html/login.html -->
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Acceso a la API de Conversión</title>
+    <link rel="stylesheet" href="../css/main.css" />
+    <link rel="stylesheet" href="../css/login.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Acceso a la API de Conversión</h1>
+
+      <a href="/auth/google" class="google-btn">
+        Iniciar Sesión con Google
+      </a>
+
+      <p class="separator">O</p>
+
+      <form id="loginForm" class="auth-form">
+        <input
+          type="email"
+          id="email"
+          placeholder="Email"
+          required
+          autocomplete="username"
+        />
+        <input
+          type="password"
+          id="password"
+          placeholder="Contraseña"
+          required
+          autocomplete="current-password"
+        />
+        <div class="button-group">
+          <button type="submit" id="loginButton">Iniciar Sesión</button>
+          <button
+            type="button"
+            id="goToRegisterButton"
+            onclick="window.location.href='/auth/register'"
+          >
+            Registrarse
+          </button>
+        </div>
+      </form>
+      <p id="message" class="message"></p>
+    </div>
+
+    <script type="module" src="../js/login.js"></script>
+  </body>
+</html>
