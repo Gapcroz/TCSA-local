@@ -7,6 +7,8 @@ const conversionJobRepository = require("../repositories/conversionJobRepository
 const {
   getDocumentTypeByPrefix,
 } = require("../data/documentTypeRegistry");
+// --- NEW: Import the document detector utility ---
+const { detectDocumentType } = require("../utils/documentDetector");
 
 const INPUT_DIR =
   process.env.SFTP_LOCAL_INPUT_DIR ||
@@ -71,50 +73,60 @@ const processWatchedFiles = async () => {
     }
 
     const originalName = fileName;
+    let documentType = null;
+    let fileBuffer;
+    let newJob = null;
+    let convertedFilePath = null;
+    let errorReportPath = null;
 
-    // --- REVISED LOGIC TO GET CANONICAL DOCUMENT TYPE ---
-    const filePrefix = originalName.substring(0, 2).toUpperCase();
-    const registryEntry = getDocumentTypeByPrefix(filePrefix);
+    try {
+      // Read the file buffer once for detection and processing
+      fileBuffer = await fs.readFile(filePath);
 
-    if (!registryEntry) {
-      console.warn(
-        `[Automated Service] Unknown document type prefix in filename: ${filePrefix}. Skipping file: ${originalName}`
-      );
-      try {
+      // --- NEW: AUTOMATIC DOCUMENT TYPE DETECTION LOGIC ---
+      // First, try to detect the type based on file content (headers).
+      documentType = await detectDocumentType(fileBuffer, originalName);
+
+      if (documentType) {
+        console.log(
+          `[Automated Service] Detected document type via content analysis: "${documentType}"`
+        );
+      } else {
+        // If content detection fails or is inconclusive, fall back to filename prefix.
+        console.log(
+          "[Automated Service] Content detection failed or was inconclusive. Falling back to filename prefix."
+        );
+        const filePrefix = originalName.substring(0, 2).toUpperCase();
+        const registryEntry = getDocumentTypeByPrefix(filePrefix);
+
+        if (registryEntry) {
+          documentType = registryEntry.docType; // Get the canonical name
+          console.log(
+            `[Automated Service] Resolved prefix "${filePrefix}" to documentType "${documentType}"`
+          );
+        }
+      }
+
+      // If neither method worked, move the file to failed and skip.
+      if (!documentType) {
+        console.warn(
+          `[Automated Service] Could not determine document type for file: ${originalName}. Skipping.`
+        );
         const newPath = path.join(FAILED_DIR, originalName);
         await fs.rename(filePath, newPath);
         console.log(
           `[Automated Service] Moved unknown file type ${originalName} to ${FAILED_DIR}`
         );
-      } catch (moveErr) {
-        console.error(
-          `[Automated Service] Could not move unknown file type ${originalName} to ${FAILED_DIR}:`,
-          moveErr
-        );
+        continue; // Move to the next file
       }
-      continue;
-    }
+      // --- END OF DETECTION LOGIC ---
 
-    const documentType = registryEntry.docType; // Get the canonical name
-    console.log(
-      `[Automated Service] Resolved prefix "${filePrefix}" to documentType "${documentType}"`
-    );
-    // --- END REVISED LOGIC ---
+      const outputFormat = "txt";
+      const conversionOptions = {
+        documentType: documentType, // Use the determined document type
+      };
 
-    let outputFormat = "txt";
-    let conversionOptions = {
-      documentType: documentType, // Now passing the correct string identifier
-    };
-
-    console.log(`[Automated Service] Processing file: ${originalName}`);
-    let newJob = null;
-    let convertedFilePath = null;
-    let errorReportPath = null;
-    let jobStatus = "failed";
-    let fileBuffer;
-
-    try {
-      fileBuffer = await fs.readFile(filePath);
+      console.log(`[Automated Service] Processing file: ${originalName}`);
 
       newJob = await conversionJobRepository.createConversionJob({
         userId: null,
@@ -128,7 +140,7 @@ const processWatchedFiles = async () => {
 
       const processingResult =
         await fileConversionService.processFileForConversion(
-          fileBuffer,
+          fileBuffer, // Use the buffer we already read
           originalName,
           outputFormat,
           conversionOptions,
@@ -138,7 +150,7 @@ const processWatchedFiles = async () => {
 
       convertedFilePath = processingResult.convertedFilePath;
       errorReportPath = processingResult.errorReportPath;
-      jobStatus = processingResult.status;
+      const jobStatus = processingResult.status;
 
       await conversionJobRepository.updateConversionJobStatus(
         newJob._id,
@@ -155,9 +167,9 @@ const processWatchedFiles = async () => {
       const sftpRemoteErrorDir =
         process.env.SFTP_REMOTE_ERROR_DIR || "/error_reports";
 
-      const fileExists = async (filePath) => {
+      const fileExists = async (p) => {
         try {
-          await fs.access(filePath, fs.constants.F_OK);
+          await fs.access(p, fs.constants.F_OK);
           return true;
         } catch {
           return false;
@@ -170,17 +182,11 @@ const processWatchedFiles = async () => {
           convertedFilePath,
           path.join(sftpRemoteUploadDir, remoteConvertedFileName)
         );
-        await fs
-          .unlink(convertedFilePath)
-          .catch((e) =>
-            console.error(
-              `[Automated Service] Error deleting local converted file ${convertedFilePath}:`,
-              e
-            )
-          );
-      } else if (convertedFilePath) {
-        console.warn(
-          `[Automated Service] Converted file not found at ${convertedFilePath}, skipping SFTP upload.`
+        await fs.unlink(convertedFilePath).catch((e) =>
+          console.error(
+            `[Automated Service] Error deleting local converted file ${convertedFilePath}:`,
+            e
+          )
         );
       }
 
@@ -190,17 +196,11 @@ const processWatchedFiles = async () => {
           errorReportPath,
           path.join(sftpRemoteErrorDir, remoteErrorFileName)
         );
-        await fs
-          .unlink(errorReportPath)
-          .catch((e) =>
-            console.error(
-              `[Automated Service] Error deleting local error report ${errorReportPath}:`,
-              e
-            )
-          );
-      } else if (errorReportPath) {
-        console.warn(
-          `[Automated Service] Error report file not found at ${errorReportPath}, skipping SFTP upload.`
+        await fs.unlink(errorReportPath).catch((e) =>
+          console.error(
+            `[Automated Service] Error deleting local error report ${errorReportPath}:`,
+            e
+          )
         );
       }
 
@@ -236,33 +236,12 @@ const processWatchedFiles = async () => {
           }
         );
       }
-      const fileExists = async (filePath) => {
-        try {
-          await fs.access(filePath, fs.constants.F_OK);
-          return true;
-        } catch {
-          return false;
-        }
-      };
-      if (convertedFilePath && (await fileExists(convertedFilePath))) {
-        await fs
-          .unlink(convertedFilePath)
-          .catch((e) =>
-            console.error(
-              `[Automated Service] Error deleting partial converted file ${convertedFilePath}:`,
-              e
-            )
-          );
+      // Cleanup partial files if they exist
+      if (convertedFilePath) {
+        await fs.unlink(convertedFilePath).catch(() => {});
       }
-      if (errorReportPath && (await fileExists(errorReportPath))) {
-        await fs
-          .unlink(errorReportPath)
-          .catch((e) =>
-            console.error(
-              `[Automated Service] Error deleting partial error report ${errorReportPath}:`,
-              e
-            )
-          );
+      if (errorReportPath) {
+        await fs.unlink(errorReportPath).catch(() => {});
       }
     }
   }
