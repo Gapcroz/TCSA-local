@@ -3,13 +3,13 @@ const fileConversionService = require("../services/fileConversionService");
 const conversionJobRepository = require("../repositories/conversionJobRepository");
 const path = require("path");
 const fs = require("fs/promises");
-const { getRegistryEntry } = require("../data/documentTypeRegistry");
-// --- NEW: Import the document detector utility ---
 const { detectDocumentType } = require("../utils/documentDetector");
 
+// Middleware de Multer (configúralo una vez)
 const multer = require("multer");
 const upload = multer({ dest: "temp_uploads/" });
 
+// Helper function for checking file existence asynchronously
 const fileExists = async (filePath) => {
   try {
     await fs.access(filePath, fs.constants.F_OK);
@@ -34,6 +34,8 @@ const uploadAndConvertFile = async (req, res) => {
     // Read the buffer once for potential detection and for processing
     fileBuffer = await fs.readFile(tempFilePath);
   } catch (readError) {
+    // If the file can't be read, delete the temp file and return an error
+    await fs.unlink(tempFilePath).catch(() => {});
     return res
       .status(500)
       .json({ message: "Error reading uploaded file.", error: readError.message });
@@ -46,45 +48,37 @@ const uploadAndConvertFile = async (req, res) => {
       .json({ message: "El formato de salida es requerido." });
   }
 
-  // --- NEW: AUTOMATIC DOCUMENT TYPE DETECTION LOGIC ---
-  try {
-    // If the user does not specify the document type, try to figure it out.
-    if (!conversionOptions.documentType) {
+  // --- REVISED DETECTION LOGIC ---
+  // If documentType is NOT provided by the user, attempt auto-detection.
+  if (!conversionOptions.documentType) {
+    console.log(
+      "[FileController] documentType not provided. Attempting auto-detection."
+    );
+    const detectedType = await detectDocumentType(fileBuffer, originalname);
+
+    if (detectedType) {
+      // If detection is successful, use the detected type.
+      conversionOptions.documentType = detectedType;
       console.log(
-        "[FileController] documentType not provided. Attempting auto-detection."
+        `[FileController] Auto-detected documentType: "${detectedType}"`
       );
-      // 1. Attempt detection from file content (headers).
-      const detectedType = await detectDocumentType(fileBuffer, originalname);
-
-      if (detectedType) {
-        conversionOptions.documentType = detectedType;
-        console.log(
-          `[FileController] Auto-detected documentType: "${detectedType}"`
-        );
-      } else {
-        // 2. Fallback to filename prefix if content detection fails.
-        console.log(
-          "[FileController] Auto-detection failed. Falling back to prefix."
-        );
-        const filePrefix = originalname.substring(0, 2).toUpperCase();
-        const registryEntry = getRegistryEntry(filePrefix); // Throws if not found
-        conversionOptions.documentType = registryEntry.docType;
-        console.log(
-          `[FileController] Resolved prefix "${filePrefix}" to documentType "${conversionOptions.documentType}"`
-        );
-      }
+    } else {
+      // If detection fails (ambiguity, low score, etc.), return a specific error.
+      // This prompts the frontend to ask the user for manual input.
+      console.log(
+        "[FileController] Auto-detection failed. Requesting manual input from user."
+      );
+      await fs.unlink(tempFilePath); // Clean up the temporary file
+      return res.status(400).json({
+        message:
+          "Could not determine document type. Please select it manually.",
+        errorType: "AMBIGUITY_DETECTED", // This is the key for the frontend
+      });
     }
-  } catch (e) {
-    // If both detection methods fail, inform the user.
-    await fs.unlink(tempFilePath);
-    return res.status(400).json({
-      message:
-        "Could not determine document type from file content or prefix. Please specify the 'documentType' field in your request (e.g., 'finishedProduct', 'rawMaterial').",
-      error: e.message,
-    });
   }
-  // --- END OF DETECTION LOGIC ---
+  // --- END OF REVISED LOGIC ---
 
+  // This check assumes a middleware has populated req.user
   if (!req.user || !req.user.id) {
     await fs.unlink(tempFilePath);
     return res.status(401).json({
@@ -120,17 +114,18 @@ const uploadAndConvertFile = async (req, res) => {
       completedAt: new Date(),
     });
 
-    // The temp file is no longer needed after processing
+    // The temp file is no longer needed after processing is complete
     await fs.unlink(tempFilePath);
 
     res.status(200).json({
       message: "Archivo procesado exitosamente.",
       jobId: newJob._id,
-      documentType: conversionOptions.documentType, // Also return the type used
+      documentType: conversionOptions.documentType, // Return the type used
       status: status,
     });
   } catch (error) {
     console.error("Error al procesar el archivo:", error);
+    // Cleanup in case of failure
     if (await fileExists(tempFilePath)) {
       await fs
         .unlink(tempFilePath)
@@ -165,6 +160,7 @@ const getConvertedFile = async (req, res) => {
         .json({ message: "Trabajo de conversión no encontrado." });
     }
 
+    // Authorization checks
     if (job.userId && job.userId.toString() !== req.user.id.toString()) {
       return res
         .status(403)
@@ -218,6 +214,7 @@ const getErrorReport = async (req, res) => {
         .json({ message: "Trabajo de conversión no encontrado." });
     }
 
+    // Authorization checks
     if (job.userId && job.userId.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: "Acceso denegado." });
     }
