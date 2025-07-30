@@ -11,7 +11,7 @@
     "dev:frontend": "node esbuild.config.js dev",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:test": "concurrently \"npm run dev:backend:test\" \"npm run dev:frontend\"",
-    "start": "npm run build:frontend && node index.js"
+    "start": "npm run build && node index.js"
   },
   "author": "",
   "license": "ISC",
