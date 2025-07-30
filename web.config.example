@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <system.webServer>
+        <handlers>
+            <add name="iisnode" path="index.js" verb="*" modules="iisnode" />
+        </handlers>
+        <rewrite>
+            <rules>
+                <!-- Static content - only process actual files -->
+                <rule name="StaticContent" stopProcessing="true">
+                    <match url="^dist/(.*)$" />
+                    <conditions>
+                        <add input="{REQUEST_FILENAME}" matchType="IsFile" />
+                    </conditions>
+                    <action type="Rewrite" url="dist/{R:1}" />
+                </rule>
+                
+                <!-- Direct requests to Node for everything else -->
+                <rule name="NodeJS" stopProcessing="true">
+                    <match url=".*" />
+                    <action type="Rewrite" url="index.js" />
+                </rule>
+            </rules>
+        </rewrite>
+        <iisnode 
+            nodeProcessCommandLine="node.exe --max-http-header-size=16384"
+            watchedFiles="*.js;*.json;web.config"
+            loggingEnabled="true" />
+    </system.webServer>
+</configuration>
