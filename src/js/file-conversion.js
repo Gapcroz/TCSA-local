@@ -16,11 +16,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // State Management
   let currentPage = 1;
-  const jobsPerPage = 10; // Or any number you prefer
+  const jobsPerPage = 10;
 
   // --- Helper Functions ---
 
-  // Manages the loading state of the upload button
   const setButtonLoading = (isLoading) => {
     const btnText = uploadButton.querySelector(".btn-text");
     const spinner = uploadButton.querySelector(".spinner");
@@ -29,23 +28,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     spinner.classList.toggle("hidden", !isLoading);
   };
 
-  // Displays the result of a successful or partially successful conversion
   const displayUploadResult = (result) => {
     uploadResultDiv.innerHTML = "";
-    uploadResultDiv.className = "conversion-result"; // Reset classes
+    uploadResultDiv.className = "conversion-result";
 
-    let title, message, actionsHTML = "";
+    let title,
+      message,
+      actionsHTML = "";
 
     if (result.status === "completed") {
       uploadResultDiv.classList.add("success");
       title = "Conversión Exitosa";
-      message = "El archivo se ha convertido correctamente.";
+      message = `El archivo se ha convertido correctamente como '${result.documentType}'.`;
       actionsHTML = `<a href="/api/files/${result.jobId}/download" target="_blank">Descargar Archivo Convertido</a>`;
     } else if (result.status === "completed_with_errors") {
       uploadResultDiv.classList.add("warning");
-      title = "Conversión Completada con Errores";
+      title = "Completada con Errores";
       message =
-        "El archivo se procesó, pero se encontraron algunos problemas. Revise el reporte de errores para más detalles.";
+        "El archivo se procesó, pero se encontraron problemas. Revise el reporte de errores.";
       actionsHTML = `
         <a href="/api/files/${result.jobId}/download" target="_blank">Descargar Archivo (con errores)</a>
         <a href="/api/files/${result.jobId}/errors" target="_blank">Descargar Reporte de Errores</a>
@@ -60,7 +60,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     uploadResultDiv.classList.remove("hidden");
   };
 
-  // Displays critical API or network errors in the result box
   const displayApiError = (errorMessage) => {
     uploadResultDiv.innerHTML = "";
     uploadResultDiv.className = "conversion-result error";
@@ -73,20 +72,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     uploadResultDiv.classList.remove("hidden");
   };
 
-  // Checks if the user is an admin to show the admin link
   const checkAdminStatus = async () => {
     try {
       const response = await fetch("/auth/check-admin");
-      const data = await response.json();
-      if (data.isAdmin) {
-        adminLink.classList.remove("hidden");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.isAdmin) {
+          adminLink.classList.remove("hidden");
+        }
       }
     } catch (error) {
       console.error("Error checking admin status:", error);
     }
   };
 
-  // Updates the pagination controls based on API response
   const updatePaginationControls = (data) => {
     if (data.totalPages <= 1) {
       paginationControls.classList.add("hidden");
@@ -100,23 +99,27 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // --- Main Logic and Event Listeners ---
 
-  // Initial setup
   await checkAdminStatus();
   fetchConversionJobs(currentPage);
 
-  // Show/hide document type dropdown based on file extension
+  // When a new file is selected, reset the UI state.
   fileInput.addEventListener("change", () => {
     const fileName = fileInput.files[0] ? fileInput.files[0].name : "";
     const fileExtension = fileName.split(".").pop().toLowerCase();
+
+    // Always hide the result box and message when a new file is chosen
+    uploadResultDiv.classList.add("hidden");
+    uploadMessage.textContent = "";
+
+    // Show dropdown for TXT, hide it for others to start with a clean slate.
     if (fileExtension === "txt") {
       documentTypeGroup.style.display = "block";
     } else {
       documentTypeGroup.style.display = "none";
-      documentTypeSelect.value = "";
+      documentTypeSelect.value = ""; // Reset selection
     }
   });
 
-  // Handle file upload and conversion
   uploadButton.addEventListener("click", async () => {
     const file = fileInput.files[0];
     const outputFormat = outputFormatSelect.value;
@@ -130,22 +133,25 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    const fileExtension = file.name.split(".").pop().toLowerCase();
-    if (fileExtension === "txt" && !documentType) {
-      displayApiError(
-        "Por favor, seleccione un tipo de documento para archivos TXT."
-      );
+    // If the dropdown is visible, a selection is mandatory.
+    if (
+      documentTypeGroup.style.display === "block" &&
+      !documentType
+    ) {
+      displayApiError("Por favor, seleccione un tipo de documento.");
       return;
     }
 
     setButtonLoading(true);
-    uploadMessage.textContent = "Subiendo y convirtiendo...";
+    uploadMessage.textContent = "Subiendo y procesando...";
     uploadMessage.style.color = "orange";
 
     const formData = new FormData();
     formData.append("file", file);
     formData.append("outputFormat", outputFormat);
-    if (fileExtension === "txt") {
+
+    // Append documentType if the dropdown is visible (for TXT or ambiguity fallback)
+    if (documentTypeGroup.style.display === "block") {
       formData.append("documentType", documentType);
     }
 
@@ -153,9 +159,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const response = await fetch("/api/files/upload", {
         method: "POST",
         body: formData,
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
+        // Assuming JWT is handled by a session or another mechanism if not in localStorage
       });
 
       const result = await response.json();
@@ -163,11 +167,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       if (response.ok) {
         displayUploadResult(result);
-        fileInput.value = "";
-        currentPage = 1; // Reset to first page to show the new job
+        fileInput.value = ""; // Clear file input on success
+        documentTypeGroup.style.display = "none"; // Hide dropdown
+        currentPage = 1;
         fetchConversionJobs(currentPage, result.jobId);
       } else {
-        displayApiError(result.message);
+        // --- NEW: Handle ambiguity error specifically ---
+        if (result.errorType === "AMBIGUITY_DETECTED") {
+          displayApiError(
+            "No se pudo determinar el tipo de archivo automáticamente. Por favor, selecciónelo manualmente y vuelva a intentarlo."
+          );
+          documentTypeGroup.style.display = "block"; // Show the dropdown
+        } else {
+          displayApiError(result.message);
+        }
       }
     } catch (error) {
       uploadMessage.textContent = "";
@@ -178,7 +191,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Pagination button listeners
+  // Pagination and Job Fetching logic (remains unchanged)
   prevPageBtn.addEventListener("click", () => {
     if (currentPage > 1) {
       currentPage--;
@@ -191,16 +204,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     fetchConversionJobs(currentPage);
   });
 
-  // Fetches and displays a page of conversion jobs
   async function fetchConversionJobs(page, newJobId = null) {
     try {
       const response = await fetch(
-        `/api/conversion-jobs?page=${page}&limit=${jobsPerPage}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
+        `/api/conversion-jobs?page=${page}&limit=${jobsPerPage}`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch job history.");

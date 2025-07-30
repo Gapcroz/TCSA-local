@@ -1,7 +1,4 @@
 // data/documentTypeRegistry.js
-// This file acts as a central registry for all document type configurations.
-// It maps internal document type names to their corresponding models, schemas, and file prefixes.
-
 const {
   FinishedProduct,
   RawMaterial,
@@ -16,7 +13,7 @@ const documentRegistry = {
     model: FinishedProduct,
     schemaSpec: finishedProductSchemaSpec,
     filePrefix: "FG",
-    docType: "finishedProduct", // Add self-reference for convenience
+    docType: "finishedProduct",
   },
   rawMaterial: {
     model: RawMaterial,
@@ -32,7 +29,41 @@ const documentRegistry = {
   },
 };
 
-// Create a reverse map for quick lookup from file prefix to the full config object
+// --- NEW: Pre-calculate which fields are unique to each schema ---
+const getSchemaUniqueness = () => {
+  const allFields = {};
+  const uniquenessMap = {};
+  const docTypes = Object.keys(documentRegistry);
+
+  // First, get a list of all fields for each document type
+  docTypes.forEach((docType) => {
+    allFields[docType] = new Set(
+      documentRegistry[docType].schemaSpec.map((field) => field.dataElement)
+    );
+  });
+
+  // Now, determine uniqueness for each field in each doc type
+  docTypes.forEach((currentDocType) => {
+    uniquenessMap[currentDocType] = new Set();
+    const otherDocTypes = docTypes.filter((dt) => dt !== currentDocType);
+
+    allFields[currentDocType].forEach((field) => {
+      const isPresentElsewhere = otherDocTypes.some((otherDoc) =>
+        allFields[otherDoc].has(field)
+      );
+      if (!isPresentElsewhere) {
+        uniquenessMap[currentDocType].add(field);
+      }
+    });
+  });
+
+  console.log("[Registry] Calculated schema uniqueness:", uniquenessMap);
+  return uniquenessMap;
+};
+
+const schemaUniquenessMap = getSchemaUniqueness();
+// --- END of new section ---
+
 const prefixToConfigMap = Object.values(documentRegistry).reduce(
   (acc, config) => {
     acc[config.filePrefix] = config;
@@ -41,42 +72,20 @@ const prefixToConfigMap = Object.values(documentRegistry).reduce(
   {}
 );
 
-/**
- * Retrieves the full configuration entry for a given identifier, which can be
- * either the internal document type name (e.g., 'finishedProduct') or the
- * file prefix (e.g., 'FG').
- *
- * @param {string} identifier - The internal name or the file prefix.
- * @returns {object} The configuration object for the document type.
- * @throws {Error} if the identifier is not found in the registry.
- */
 const getRegistryEntry = (identifier) => {
-  // First, try to find it as an internal name (e.g., 'billOfMaterials')
-  let entry = documentRegistry[identifier];
+  let entry = documentRegistry[identifier] || prefixToConfigMap[identifier];
   if (entry) {
     return entry;
   }
-
-  // If not found, try to find it as a file prefix (e.g., 'BM')
-  entry = prefixToConfigMap[identifier];
-  if (entry) {
-    return entry;
-  }
-
-  // If still not found, it's an unknown type.
   throw new Error(`Unknown document type or prefix requested: ${identifier}`);
 };
 
-/**
- * Retrieves the configuration entry specifically by its file prefix.
- * @param {string} prefix - The file prefix (e.g., 'FG').
- * @returns {object|undefined} The configuration object or undefined if not found.
- */
 const getDocumentTypeByPrefix = (prefix) => {
   return prefixToConfigMap[prefix];
 };
 
 module.exports = {
   getRegistryEntry,
-  getDocumentTypeByPrefix, // Export the new function
+  getDocumentTypeByPrefix,
+  schemaUniquenessMap, // Export the pre-calculated map
 };

@@ -13,22 +13,18 @@ const getLoginPage = (req, res) => {
 const getDashboard = async (req, res) => {
   if (req.isAuthenticated()) {
     try {
-      // Opcional: obtener datos detallados del usuario
-      // const user = await authService.getUserProfile(req.user.id);
-      // res.status(200).json({ message: 'Bienvenido al dashboard!', user: user.displayName, email: user.email });
-      res.sendFile(path.join(__dirname, '..', 'views', 'dashboard.html')); // Envía el HTML de dashboard
+      res.sendFile(path.join(__dirname, '..', 'views', 'dashboard.html'));
     } catch (error) {
       console.error('Error al obtener perfil de usuario:', error);
-      res.status(500).send('Error interno del servidor.'); // Envía un mensaje simple
+      res.status(500).send('Error interno del servidor.');
     }
   } else {
-    // Si por alguna razón llega aquí sin autenticar, redirige a login
     res.redirect('/auth/login');
   }
 };
 
 const handleLoginFailure = (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'views', 'login-failure.html')); // Envía el HTML de fallo
+  res.sendFile(path.join(__dirname, '..', 'views', 'login-failure.html'));
 };
 
 const handleLogout = (req, res, next) => {
@@ -36,10 +32,10 @@ const handleLogout = (req, res, next) => {
     if (err) {
       return next(err);
     }
-    // Después del logout, redirige a la página de inicio o login
-    res.redirect('/'); // O a '/auth/login'
+    res.redirect('/');
   });
 };
+
 const registerUser = async (req, res) => {
   const { email, password } = req.body;
 
@@ -53,10 +49,8 @@ const registerUser = async (req, res) => {
       return res.status(409).json({ message: 'El email ya está registrado.' });
     }
 
-    // Crea el usuario; la password se hasheará en el pre-save hook
     user = await userRepository.findOrCreateUserByEmailPassword(email, password);
 
-    // Puedes hacer login automático aquí, o pedirle que inicie sesión
     res.status(201).json({ message: 'Usuario registrado exitosamente. Por favor, inicie sesión.' });
   } catch (error) {
     console.error('Error al registrar usuario:', error);
@@ -76,21 +70,14 @@ const localLogin = (req, res, next) => {
       return res.status(401).json({ message: info.message || 'Credenciales inválidas.' });
     }
 
-    // Antes de emitir JWT o iniciar sesión, verifica si el usuario está activo
     if (!user.isActive) {
-      // Para flujo de API:
       if (wantsJwt) {
         return res.status(403).json({ message: 'Acceso denegado. Su cuenta no está activa para usar la API.' });
       }
-      // Para flujo de navegador (mostrar HTML):
-      // Si el dashboard redirige a access-pending.html, Passport ya lo manejaría.
-      // O puedes forzar la redirección aquí para cuentas inactivas
-      return res.redirect('/access-pending'); // Asegúrate de que esta ruta existe en server.js o authRoutes.js
+      return res.redirect('/access-pending');
     }
 
-
     if (wantsJwt) {
-      // Si el cliente quiere JWT directamente, emitir el token y no establecer sesión de Express
       const jwtPayload = {
         id: user._id,
         email: user.email,
@@ -100,7 +87,6 @@ const localLogin = (req, res, next) => {
       const token = jwt.sign(jwtPayload, process.env.JWT_SECRET, { expiresIn: '7d' });
       return res.status(200).json({ message: 'JWT generado exitosamente.', token: token });
     } else {
-      // Comportamiento por defecto: iniciar sesión basado en cookies y redirigir
       req.logIn(user, async (err) => {
         if (err) {
           console.error('Error al iniciar sesión local:', err);
@@ -112,7 +98,6 @@ const localLogin = (req, res, next) => {
   })(req, res, next);
 };
 
-// Endpoint para obtener JWT (se mantiene igual, no necesita cambios)
 const getJwtToken = async (req, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ message: 'No autenticado. Inicie sesión primero (OAuth o Local).' });
@@ -135,6 +120,21 @@ const getJwtToken = async (req, res) => {
 
   res.status(200).json({ message: 'JWT generado exitosamente.', token: token });
 };
+
+// --- NEW ---
+/**
+ * Checks if the currently authenticated user is an admin.
+ * This endpoint is purely for UX purposes on the frontend to decide
+ * whether to show or hide UI elements like an "Admin Panel" link.
+ * It MUST be protected by an authentication middleware.
+ */
+const checkAdminStatus = (req, res) => {
+  // The `authenticateRequest` middleware should have already run,
+  // so we can safely check req.user.
+  const isAdmin = req.user && req.user.role === 'admin';
+  res.status(200).json({ isAdmin: isAdmin });
+};
+
 module.exports = {
   getLoginPage,
   getDashboard,
@@ -143,4 +143,5 @@ module.exports = {
   registerUser,
   localLogin,
   getJwtToken,
+  checkAdminStatus, // <-- Export the new function
 };

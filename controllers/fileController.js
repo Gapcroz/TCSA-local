@@ -3,7 +3,7 @@ const fileConversionService = require("../services/fileConversionService");
 const conversionJobRepository = require("../repositories/conversionJobRepository");
 const path = require("path");
 const fs = require("fs/promises");
-const { getRegistryEntry } = require("../data/documentTypeRegistry");
+const { detectDocumentType } = require("../utils/documentDetector");
 
 // Middleware de Multer (configúralo una vez)
 const multer = require("multer");
@@ -28,6 +28,18 @@ const uploadAndConvertFile = async (req, res) => {
 
   const { path: tempFilePath, originalname } = req.file;
   const { outputFormat, ...conversionOptions } = req.body;
+  let fileBuffer;
+
+  try {
+    // Read the buffer once for potential detection and for processing
+    fileBuffer = await fs.readFile(tempFilePath);
+  } catch (readError) {
+    // If the file can't be read, delete the temp file and return an error
+    await fs.unlink(tempFilePath).catch(() => {});
+    return res
+      .status(500)
+      .json({ message: "Error reading uploaded file.", error: readError.message });
+  }
 
   if (!outputFormat) {
     await fs.unlink(tempFilePath);
@@ -36,25 +48,37 @@ const uploadAndConvertFile = async (req, res) => {
       .json({ message: "El formato de salida es requerido." });
   }
 
-  // --- REVISED LOGIC TO GET CANONICAL DOCUMENT TYPE ---
+  // --- REVISED DETECTION LOGIC ---
+  // If documentType is NOT provided by the user, attempt auto-detection.
   if (!conversionOptions.documentType) {
-    const filePrefix = originalname.substring(0, 2).toUpperCase();
-    try {
-      const registryEntry = getRegistryEntry(filePrefix);
-      // Use the canonical internal name (e.g., 'finishedProduct')
-      conversionOptions.documentType = registryEntry.docType;
+    console.log(
+      "[FileController] documentType not provided. Attempting auto-detection."
+    );
+    const detectedType = await detectDocumentType(fileBuffer, originalname);
+
+    if (detectedType) {
+      // If detection is successful, use the detected type.
+      conversionOptions.documentType = detectedType;
       console.log(
-        `[FileController] Resolved prefix "${filePrefix}" to documentType "${conversionOptions.documentType}"`
+        `[FileController] Auto-detected documentType: "${detectedType}"`
       );
-    } catch (e) {
-      await fs.unlink(tempFilePath);
-      return res
-        .status(400)
-        .json({ message: `Unknown document type prefix: ${filePrefix}` });
+    } else {
+      // If detection fails (ambiguity, low score, etc.), return a specific error.
+      // This prompts the frontend to ask the user for manual input.
+      console.log(
+        "[FileController] Auto-detection failed. Requesting manual input from user."
+      );
+      await fs.unlink(tempFilePath); // Clean up the temporary file
+      return res.status(400).json({
+        message:
+          "Could not determine document type. Please select it manually.",
+        errorType: "AMBIGUITY_DETECTED", // This is the key for the frontend
+      });
     }
   }
-  // --- END REVISED LOGIC ---
+  // --- END OF REVISED LOGIC ---
 
+  // This check assumes a middleware has populated req.user
   if (!req.user || !req.user.id) {
     await fs.unlink(tempFilePath);
     return res.status(401).json({
@@ -64,8 +88,6 @@ const uploadAndConvertFile = async (req, res) => {
 
   let newJob;
   try {
-    const fileBuffer = await fs.readFile(tempFilePath);
-
     newJob = await conversionJobRepository.createConversionJob({
       userId: req.user.id,
       fileName: originalname,
@@ -78,7 +100,7 @@ const uploadAndConvertFile = async (req, res) => {
 
     const { convertedFilePath, errorReportPath, status } =
       await fileConversionService.processFileForConversion(
-        fileBuffer,
+        fileBuffer, // Use the buffer we already read
         originalname,
         outputFormat,
         conversionOptions,
@@ -92,16 +114,18 @@ const uploadAndConvertFile = async (req, res) => {
       completedAt: new Date(),
     });
 
+    // The temp file is no longer needed after processing is complete
     await fs.unlink(tempFilePath);
 
     res.status(200).json({
       message: "Archivo procesado exitosamente.",
       jobId: newJob._id,
-      convertedFileName: path.basename(convertedFilePath),
+      documentType: conversionOptions.documentType, // Return the type used
       status: status,
     });
   } catch (error) {
     console.error("Error al procesar el archivo:", error);
+    // Cleanup in case of failure
     if (await fileExists(tempFilePath)) {
       await fs
         .unlink(tempFilePath)
@@ -136,6 +160,7 @@ const getConvertedFile = async (req, res) => {
         .json({ message: "Trabajo de conversión no encontrado." });
     }
 
+    // Authorization checks
     if (job.userId && job.userId.toString() !== req.user.id.toString()) {
       return res
         .status(403)
@@ -161,11 +186,13 @@ const getConvertedFile = async (req, res) => {
 
     res.download(
       job.convertedFilePath,
-      job.convertedFileName || path.basename(job.convertedFilePath),
+      path.basename(job.convertedFilePath),
       (err) => {
         if (err) {
           console.error("Error al enviar el archivo para descarga:", err);
-          res.status(500).json({ message: "Error al descargar el archivo." });
+          if (!res.headersSent) {
+            res.status(500).json({ message: "Error al descargar el archivo." });
+          }
         }
       }
     );
@@ -187,6 +214,7 @@ const getErrorReport = async (req, res) => {
         .json({ message: "Trabajo de conversión no encontrado." });
     }
 
+    // Authorization checks
     if (job.userId && job.userId.toString() !== req.user.id.toString()) {
       return res.status(403).json({ message: "Acceso denegado." });
     }
@@ -205,9 +233,11 @@ const getErrorReport = async (req, res) => {
     res.download(job.errorReportPath, `error_report_${jobId}.json`, (err) => {
       if (err) {
         console.error("Error al enviar el reporte de errores:", err);
-        res
-          .status(500)
-          .json({ message: "Error al descargar el reporte de errores." });
+        if (!res.headersSent) {
+          res
+            .status(500)
+            .json({ message: "Error al descargar el reporte de errores." });
+        }
       }
     });
   } catch (error) {

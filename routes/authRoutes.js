@@ -67,8 +67,7 @@ router.get('/jwt', API_PROTECTED_ROUTES, authController.getJwtToken); // JWT gen
 // Route for displaying login failure page
 router.get('/login-failure', authController.handleLoginFailure);
 
-// Note: '/login' HTML route is typically handled directly in server.js
-// router.get('/login', authController.getLoginPage); // If you want to keep it here, ensure it's not protected
+router.get('/check-admin', API_PROTECTED_ROUTES, authController.checkAdminStatus);
 
 
 module.exports = router;
