@@ -8,6 +8,7 @@ const sftpConfig = {
   port: parseInt(process.env.SFTP_PORT || "22", 10),
   username: process.env.SFTP_USERNAME,
   password: process.env.SFTP_PASSWORD,
+  privateKey: require('fs').readFileSync(process.env.SFTP_PRIVATE_KEY_PATH),
   // For production, consider using privateKey instead of password for better security
   // privateKey: require('fs').readFileSync('/path/to/your/private_key'),
 };
