@@ -58,18 +58,19 @@ app.use(
     store: MongoStore.create({
       // IMPORTANT: Using process.env.MONGO_URI as in your first version
       mongoUrl: process.env.MONGO_URI,
-      collectionName: 'sessions', // Name of the collection in MongoDB to store sessions
+      collectionName: "sessions", // Name of the collection in MongoDB to store sessions
       ttl: 14 * 24 * 60 * 60, // Session TTL in seconds (14 days)
-      autoRemove: 'interval', // Auto-remove expired sessions
+      autoRemove: "interval", // Auto-remove expired sessions
       autoRemoveInterval: 10, // Interval in minutes to remove expired sessions
       // client: mongoose.connection.getClient(), // Optional: If you want to use the same client instance as mongoose
     }),
     cookie: {
-      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production (HTTPS)
+      secure: process.env.NODE_ENV === "production", // Use secure cookies in production (HTTPS)
       httpOnly: true, // Prevents client-side JS from reading the cookie
+      sameSite: "lax",
       maxAge: 24 * 60 * 60 * 1000, // Cookie expiry time (1 day in milliseconds)
     },
-  }),
+  })
 );
 
 // 6. Inicializar Passport (Authentication Middleware)
