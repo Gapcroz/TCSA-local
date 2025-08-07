@@ -35,7 +35,7 @@
         </p>
       </div>
 
-      <div class="action-section">
+      <div class="action-section" style="display: none;">
         <h2>Acceso Programático (JWT)</h2>
         <p class="message" id="jwtMessage"></p>
         <button id="getJwtBtn">Obtener JWT</button>
@@ -45,7 +45,7 @@
         </div>
       </div>
 
-      <div class="api-info">
+      <div class="api-info" style="display: none;">
         <h3>¿Cómo usar la API?</h3>
         <p>
           Si obtuviste un JWT, úsalo en el encabezado
@@ -76,7 +76,7 @@
     <div id="account-settings" class="tab-pane">
       <div class="info-section">
         <h2>Detalles de Cuenta</h2>
-        <p id="googleLinkedStatus">Google vinculado: Cargando...</p>
+        <p id="googleLinkedStatus" style="display: none;">Google vinculado: Cargando...</p>
         <p id="passwordSetStatus">Contraseña establecida: Cargando...</p>
       </div>
 
@@ -94,7 +94,7 @@
         <button id="setPasswordBtn">Establecer / Cambiar Contraseña</button>
       </div>
 
-      <div class="action-section" style="margin-top: 20px;">
+      <div class="action-section" style="margin-top: 20px; display: none;">
         <h3>Vincular / Desvincular Cuenta de Google</h3>
         <p id="googleMessage" class="message"></p>
         <button id="linkGoogleBtn" class="google-link-btn" onclick="window.location.href='/auth/google?link=true'">
