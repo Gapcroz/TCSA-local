@@ -8,7 +8,7 @@ const sftpConfig = {
   port: parseInt(process.env.SFTP_PORT || "22", 10),
   username: process.env.SFTP_USERNAME,
   password: process.env.SFTP_PASSWORD,
-  privateKey: require('fs').readFileSync(process.env.SFTP_PRIVATE_KEY_PATH),
+  privateKey: require("fs").readFileSync(process.env.SFTP_PRIVATE_KEY_PATH),
   // For production, consider using privateKey instead of password for better security
   // privateKey: require('fs').readFileSync('/path/to/your/private_key'),
 };
@@ -72,7 +72,22 @@ const downloadFileViaSftp = async (remoteFilePath, localFilePath) => {
   }
 };
 
+async function uploadFilesViaSftp(files /* [{local, remote}] */) {
+  const sftp = new Client();
+  try {
+    await sftp.connect(sftpConfig);
+    for (const f of files) {
+      await sftp.put(f.local, f.remote);
+    }
+  } finally {
+    try {
+      await sftp.end();
+    } catch {}
+  }
+}
+
 module.exports = {
   uploadFileViaSftp,
   downloadFileViaSftp, // Export if needed
+  uploadFilesViaSftp,
 };
