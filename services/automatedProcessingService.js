@@ -170,24 +170,28 @@ const processWatchedFiles = async () => {
       };
 
       // --- Upload both files in a single SFTP session (batch) ---
+      const toPosix = (p) => p.replace(/\\/g, "/");
       const uploads = [];
+      
 
       // (1) CONVERTED: quitar .txt SOLO en remoto
       if (convertedFilePath && (await fileExists(convertedFilePath))) {
-        const localName = path.basename(convertedFilePath); // ej: FG240948.0725.txt
-        const remoteName = localName.replace(/\.txt$/i, ""); // ej: FG240948.0725
+        const remoteBase = path
+          .basename(convertedFilePath)
+          .replace(/\.txt$/i, ""); // <-- sin .txt en remoto
         uploads.push({
           local: convertedFilePath,
-          remote: path.join(sftpRemoteUploadDir, remoteName),
+          remote: toPosix(path.join(sftpRemoteUploadDir, remoteBase)),
         });
       }
 
       // (2) ERROR REPORT: se sube con su extensión original
       if (errorReportPath && (await fileExists(errorReportPath))) {
-        const remoteErrorFileName = path.basename(errorReportPath);
         uploads.push({
           local: errorReportPath,
-          remote: path.join(sftpRemoteErrorDir, remoteErrorFileName),
+          remote: toPosix(
+            path.join(sftpRemoteErrorDir, path.basename(errorReportPath))
+          ), // errores conservan su extensión
         });
       }
 
@@ -207,6 +211,8 @@ const processWatchedFiles = async () => {
           );
         }
       };
+
+
       await tryUnlink(convertedFilePath);
       await tryUnlink(errorReportPath);
 
