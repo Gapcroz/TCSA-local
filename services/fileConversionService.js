@@ -67,7 +67,9 @@ const processFileForConversion = async (
   }
 
   // Step 4: Generation of the standardized plain text file
-  const outputFileName = `${path.parse(originalName).name}`;
+  const outputFileName = `${path.parse(originalName).name}.${
+    outputFormat || "txt"
+  }`;
   const outputFilePath = path.join(
     __dirname,
     "..",
@@ -122,8 +124,9 @@ async function writeToStandardizedTXT(data, filePath, documentType) {
         if (field.type === "N") {
           const num = parseFloat(value);
           if (!isNaN(num)) {
-            const formatMatch =
-              field.format.match(/9\((\d+)\)\.?9?\(?(\d+)?\)?/);
+            const formatMatch = field.format.match(
+              /9\((\d+)\)\.?9?\(?(\d+)?\)?/
+            );
             const decimalLengthInFormat = formatMatch[2]
               ? parseInt(formatMatch[2], 10)
               : 0;

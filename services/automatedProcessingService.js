@@ -4,9 +4,7 @@ const path = require("path");
 const fileConversionService = require("./fileConversionService");
 const sftpService = require("./sftpService");
 const conversionJobRepository = require("../repositories/conversionJobRepository");
-const {
-  getDocumentTypeByPrefix,
-} = require("../data/documentTypeRegistry");
+const { getDocumentTypeByPrefix } = require("../data/documentTypeRegistry");
 // --- NEW: Import the document detector utility ---
 const { detectDocumentType } = require("../utils/documentDetector");
 
@@ -83,8 +81,7 @@ const processWatchedFiles = async () => {
       // Read the file buffer once for detection and processing
       fileBuffer = await fs.readFile(filePath);
 
-      // --- NEW: AUTOMATIC DOCUMENT TYPE DETECTION LOGIC ---
-      // First, try to detect the type based on file content (headers).
+      // --- AUTOMATIC DOCUMENT TYPE DETECTION LOGIC ---
       documentType = await detectDocumentType(fileBuffer, originalName);
 
       if (documentType) {
@@ -92,7 +89,6 @@ const processWatchedFiles = async () => {
           `[Automated Service] Detected document type via content analysis: "${documentType}"`
         );
       } else {
-        // If content detection fails or is inconclusive, fall back to filename prefix.
         console.log(
           "[Automated Service] Content detection failed or was inconclusive. Falling back to filename prefix."
         );
@@ -100,14 +96,13 @@ const processWatchedFiles = async () => {
         const registryEntry = getDocumentTypeByPrefix(filePrefix);
 
         if (registryEntry) {
-          documentType = registryEntry.docType; // Get the canonical name
+          documentType = registryEntry.docType;
           console.log(
             `[Automated Service] Resolved prefix "${filePrefix}" to documentType "${documentType}"`
           );
         }
       }
 
-      // If neither method worked, move the file to failed and skip.
       if (!documentType) {
         console.warn(
           `[Automated Service] Could not determine document type for file: ${originalName}. Skipping.`
@@ -117,14 +112,12 @@ const processWatchedFiles = async () => {
         console.log(
           `[Automated Service] Moved unknown file type ${originalName} to ${FAILED_DIR}`
         );
-        continue; // Move to the next file
+        continue;
       }
       // --- END OF DETECTION LOGIC ---
 
       const outputFormat = "txt";
-      const conversionOptions = {
-        documentType: documentType, // Use the determined document type
-      };
+      const conversionOptions = { documentType };
 
       console.log(`[Automated Service] Processing file: ${originalName}`);
 
@@ -132,15 +125,15 @@ const processWatchedFiles = async () => {
         userId: null,
         fileName: originalName,
         originalFilePath: filePath,
-        outputFormat: outputFormat,
-        conversionOptions: conversionOptions,
+        outputFormat,
+        conversionOptions,
         status: "processing",
         isAutomated: true,
       });
 
       const processingResult =
         await fileConversionService.processFileForConversion(
-          fileBuffer, // Use the buffer we already read
+          fileBuffer,
           originalName,
           outputFormat,
           conversionOptions,
@@ -156,8 +149,8 @@ const processWatchedFiles = async () => {
         newJob._id,
         jobStatus,
         {
-          convertedFilePath: convertedFilePath,
-          errorReportPath: errorReportPath,
+          convertedFilePath,
+          errorReportPath,
           completedAt: new Date(),
         }
       );
@@ -176,34 +169,48 @@ const processWatchedFiles = async () => {
         }
       };
 
+      // --- Upload both files in a single SFTP session (batch) ---
+      const uploads = [];
+
+      // (1) CONVERTED: quitar .txt SOLO en remoto
       if (convertedFilePath && (await fileExists(convertedFilePath))) {
-        const remoteConvertedFileName = path.basename(convertedFilePath);
-        await sftpService.uploadFileViaSftp(
-          convertedFilePath,
-          path.join(sftpRemoteUploadDir, remoteConvertedFileName)
-        );
-        await fs.unlink(convertedFilePath).catch((e) =>
-          console.error(
-            `[Automated Service] Error deleting local converted file ${convertedFilePath}:`,
-            e
-          )
-        );
+        const localName = path.basename(convertedFilePath); // ej: FG240948.0725.txt
+        const remoteName = localName.replace(/\.txt$/i, ""); // ej: FG240948.0725
+        uploads.push({
+          local: convertedFilePath,
+          remote: path.join(sftpRemoteUploadDir, remoteName),
+        });
       }
 
+      // (2) ERROR REPORT: se sube con su extensión original
       if (errorReportPath && (await fileExists(errorReportPath))) {
         const remoteErrorFileName = path.basename(errorReportPath);
-        await sftpService.uploadFileViaSftp(
-          errorReportPath,
-          path.join(sftpRemoteErrorDir, remoteErrorFileName)
-        );
-        await fs.unlink(errorReportPath).catch((e) =>
-          console.error(
-            `[Automated Service] Error deleting local error report ${errorReportPath}:`,
-            e
-          )
-        );
+        uploads.push({
+          local: errorReportPath,
+          remote: path.join(sftpRemoteErrorDir, remoteErrorFileName),
+        });
       }
 
+      if (uploads.length) {
+        await sftpService.uploadFilesViaSftp(uploads);
+      }
+
+      // cleanup local artifacts
+      const tryUnlink = async (p) => {
+        if (!p) return;
+        try {
+          await fs.unlink(p);
+        } catch (e) {
+          console.error(
+            `[Automated Service] Error deleting local file ${p}:`,
+            e
+          );
+        }
+      };
+      await tryUnlink(convertedFilePath);
+      await tryUnlink(errorReportPath);
+
+      // move original to processed
       const newPath = path.join(PROCESSED_DIR, originalName);
       await fs.rename(filePath, newPath);
       console.log(
@@ -231,9 +238,7 @@ const processWatchedFiles = async () => {
         await conversionJobRepository.updateConversionJobStatus(
           newJob._id,
           "failed",
-          {
-            errorMessage: error.message,
-          }
+          { errorMessage: error.message }
         );
       }
       // Cleanup partial files if they exist

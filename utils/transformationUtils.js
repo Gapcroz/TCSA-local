@@ -1,6 +1,43 @@
 // utils/transformationUtils.js
 const { getRegistryEntry } = require("../data/documentTypeRegistry");
 
+// --- HTS helpers ---
+const HTS_FORMATTED_RE = /^\d{4}\.\d{2}\.\d{4}$/; // ####.##.####
+const HTS_10_DIGITS_RE = /^\d{10}$/;
+
+/** Recibe cualquier string con o sin puntos y devuelve ####.##.#### (12 chars) */
+function normalizeHTS(value) {
+  if (value == null) return value;
+  const raw = String(value).trim();
+
+  // si ya viene bien formateado, lo dejamos tal cual
+  if (HTS_FORMATTED_RE.test(raw)) return raw;
+
+  // si viene en crudo (solo dígitos), lo formateamos
+  const digits = raw.replace(/\D/g, ""); // solo números
+  if (!HTS_10_DIGITS_RE.test(digits)) return raw; // deja como venía; validación lo reportará después
+  return `${digits.slice(0, 4)}.${digits.slice(4, 6)}.${digits.slice(6)}`;
+}
+
+function isHTSField(fieldName, documentType) {
+  // Raw Material
+  if (documentType === "rawMaterial") {
+    return (
+      fieldName === "Importation HTS Code" ||
+      fieldName === "Exportation HTS Code"
+    );
+  }
+  // Finished Product
+  if (documentType === "finishedProduct") {
+    return (
+      fieldName === "USA Importation HTS Code" ||
+      fieldName === "USA Exportation Code"
+    );
+  }
+  return false;
+}
+
+
 /**
  * Applies standard transformations to parsed data, such as normalizing enum values.
  * This step runs BEFORE validation to clean up the data.
@@ -85,7 +122,7 @@ const applyTransformations = (parsedData, documentType) => {
           const [code, description] = pv.split(/\s*=\s*/);
           return (
             upperRawValue === code.toUpperCase() ||
-            (description && upperRawValue === description.toUpperCase())
+            (description && upperRawValue === String(description).toUpperCase())
           );
         });
 
@@ -95,6 +132,11 @@ const applyTransformations = (parsedData, documentType) => {
             record[fieldName] = code;
           }
         }
+      }
+
+      // --- ENFORCE HTS FORMAT ####.##.#### FOR HTS FIELDS ---
+      if (isHTSField(fieldName, documentType)) {
+        record[fieldName] = normalizeHTS(record[fieldName]);
       }
     });
 
