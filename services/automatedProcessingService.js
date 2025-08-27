@@ -20,6 +20,11 @@ const FAILED_DIR =
 const TEMP_OUTPUT_DIR = path.join(__dirname, "..", "temp_converted_files");
 const TEMP_ERROR_DIR = path.join(__dirname, "..", "temp_error_reports");
 
+// Subir TXT aunque haya errores?
+const ALLOW_UPLOAD_ON_VALIDATION_ERROR =
+  (process.env.ALLOW_UPLOAD_ON_VALIDATION_ERROR || "false").toLowerCase() ===
+  "true";
+
 const ensureDirectoriesExist = async () => {
   await fs.mkdir(INPUT_DIR, { recursive: true });
   await fs.mkdir(PROCESSED_DIR, { recursive: true });
@@ -141,7 +146,7 @@ const processWatchedFiles = async () => {
           true
         );
 
-      convertedFilePath = processingResult.convertedFilePath;
+      convertedFilePath = processingResult.convertedFilePath; // puede ser null si hubo errores y no generamos TXT
       errorReportPath = processingResult.errorReportPath;
       const jobStatus = processingResult.status;
 
@@ -153,6 +158,13 @@ const processWatchedFiles = async () => {
           errorReportPath,
           completedAt: new Date(),
         }
+      );
+
+      // Log estado de job
+      console.log(
+        `[Automated Service] Job result for ${originalName} -> status=${jobStatus}, convertedFilePath=${
+          convertedFilePath || "null"
+        }, errorReportPath=${errorReportPath || "null"}`
       );
 
       const sftpRemoteUploadDir =
@@ -170,29 +182,44 @@ const processWatchedFiles = async () => {
       };
 
       // --- Upload both files in a single SFTP session (batch) ---
+      const toPosix = (p) => p.replace(/\\/g, "/");
       const uploads = [];
 
-      // (1) CONVERTED: quitar .txt SOLO en remoto
-      if (convertedFilePath && (await fileExists(convertedFilePath))) {
-        const localName = path.basename(convertedFilePath); // ej: FG240948.0725.txt
-        const remoteName = localName.replace(/\.txt$/i, ""); // ej: FG240948.0725
+      const hasErrors = jobStatus !== "completed";
+      const canUploadTxt =
+        !hasErrors || (hasErrors && ALLOW_UPLOAD_ON_VALIDATION_ERROR);
+
+      // (1) CONVERTED: quitar .txt SOLO en remoto y solo si permitido
+      if (
+        canUploadTxt &&
+        convertedFilePath &&
+        (await fileExists(convertedFilePath))
+      ) {
+        const remoteBase = path
+          .basename(convertedFilePath)
+          .replace(/\.txt$/i, ""); // FG240948.0725
         uploads.push({
           local: convertedFilePath,
-          remote: path.join(sftpRemoteUploadDir, remoteName),
+          remote: toPosix(path.join(sftpRemoteUploadDir, remoteBase)),
         });
       }
 
-      // (2) ERROR REPORT: se sube con su extensión original
+      // (2) ERROR REPORT: se sube con su extensión original (si existe)
       if (errorReportPath && (await fileExists(errorReportPath))) {
-        const remoteErrorFileName = path.basename(errorReportPath);
         uploads.push({
           local: errorReportPath,
-          remote: path.join(sftpRemoteErrorDir, remoteErrorFileName),
+          remote: toPosix(
+            path.join(sftpRemoteErrorDir, path.basename(errorReportPath))
+          ),
         });
       }
 
       if (uploads.length) {
         await sftpService.uploadFilesViaSftp(uploads);
+      } else {
+        console.log(
+          "[SFTP] No files queued for upload (no TXT permitido/creado y/o no hubo reporte de error)."
+        );
       }
 
       // cleanup local artifacts
@@ -210,11 +237,15 @@ const processWatchedFiles = async () => {
       await tryUnlink(convertedFilePath);
       await tryUnlink(errorReportPath);
 
-      // move original to processed
-      const newPath = path.join(PROCESSED_DIR, originalName);
+      // --- DECISIÓN DE DESTINO: PROCESSED vs FAILED
+      // Si hubo errores o no se generó TXT => FAILED. Si no, PROCESSED.
+      const shouldMarkAsFailed = hasErrors || !convertedFilePath;
+      const targetDir = shouldMarkAsFailed ? FAILED_DIR : PROCESSED_DIR;
+
+      const newPath = path.join(targetDir, originalName);
       await fs.rename(filePath, newPath);
       console.log(
-        `[Automated Service] Successfully processed and moved ${originalName} to ${PROCESSED_DIR}`
+        `[Automated Service] Moved ${originalName} to ${targetDir} (status=${jobStatus})`
       );
     } catch (error) {
       console.error(

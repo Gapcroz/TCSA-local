@@ -1,5 +1,7 @@
-// utils/transformationUtils.js
 const { getRegistryEntry } = require("../data/documentTypeRegistry");
+
+// --- Country catalog helpers ---
+const { isValidCountryCode, nameToCode } = require("../data/countryCatalog");
 
 // --- HTS helpers ---
 const HTS_FORMATTED_RE = /^\d{4}\.\d{2}\.\d{4}$/; // ####.##.####
@@ -10,40 +12,77 @@ function normalizeHTS(value) {
   if (value == null) return value;
   const raw = String(value).trim();
 
-  // si ya viene bien formateado, lo dejamos tal cual
   if (HTS_FORMATTED_RE.test(raw)) return raw;
 
-  // si viene en crudo (solo dígitos), lo formateamos
-  const digits = raw.replace(/\D/g, ""); // solo números
-  if (!HTS_10_DIGITS_RE.test(digits)) return raw; // deja como venía; validación lo reportará después
+  const digits = raw.replace(/\D/g, "");
+  if (!HTS_10_DIGITS_RE.test(digits)) return raw;
   return `${digits.slice(0, 4)}.${digits.slice(4, 6)}.${digits.slice(6)}`;
 }
 
 function isHTSField(fieldName, documentType) {
-  // Raw Material
   if (documentType === "rawMaterial") {
     return (
       fieldName === "Importation HTS Code" ||
       fieldName === "Exportation HTS Code"
     );
   }
-  // Finished Product
   if (documentType === "finishedProduct") {
     return (
       fieldName === "USA Importation HTS Code" ||
-      fieldName === "USA Exportation Code"
+      fieldName === "USA Exportation Code" ||
+      fieldName === "USA Exportation HTS Code" // alias aceptado
     );
   }
   return false;
 }
 
+/** Country of Origin -> código ISO2 si viene por nombre, o se deja si ya es código válido */
+function normalizeCountryOfOrigin(value) {
+  if (value == null) return value;
+  const raw = String(value).trim();
+  const up = raw.toUpperCase();
+
+  if (up.length === 2 && isValidCountryCode(up)) return up;
+
+  const guessed = nameToCode(raw);
+  if (guessed) return guessed;
+
+  return raw;
+}
+
+/** Net Cost: deja "CN" o "NO" si viene con ruido; caso contrario lo deja (validación lo marcará) */
+function normalizeNetCost(value) {
+  if (value == null) return value;
+  const raw = String(value).trim();
+  const compact = raw.toUpperCase().replace(/[^A-Z]/g, "");
+  if (compact === "CN") return "CN";
+  if (compact === "NO") return "NO";
+  return raw.toUpperCase();
+}
+
+/** Limpia campos dependientes de NAFTA cuando NAFTA !== "Y" */
+function maskNaftaDependents(record) {
+  const nafta = String(record["NAFTA"] ?? "")
+    .trim()
+    .toUpperCase();
+
+  // Si NAFTA NO aplica, limpiar estos campos en la salida
+  if (nafta !== "Y") {
+    [
+      "Preference Criterion",
+      "Producer",
+      "Net Cost",
+      "Period (From)",
+      "Period (To)",
+    ].forEach((f) => {
+      if (f in record) record[f] = "";
+    });
+  }
+}
 
 /**
  * Applies standard transformations to parsed data, such as normalizing enum values.
  * This step runs BEFORE validation to clean up the data.
- * @param {Object} parsedData - The data object from one of the parsers.
- * @param {string} documentType - The internal name of the document type.
- * @returns {Object} The transformed data object.
  */
 const applyTransformations = (parsedData, documentType) => {
   const transformedData = { ...parsedData };
@@ -60,7 +99,7 @@ const applyTransformations = (parsedData, documentType) => {
   );
 
   records.forEach((record, index) => {
-    const rowNum = index + 2; // For user-friendly logging
+    const rowNum = index + 2;
 
     schemaSpec.forEach((fieldSpec) => {
       const fieldName = fieldSpec.dataElement;
@@ -68,19 +107,10 @@ const applyTransformations = (parsedData, documentType) => {
         return; // Skip empty fields
       }
 
-      // Only apply special logic for fields with predefined possible values
       if (Array.isArray(fieldSpec.possibleValues)) {
         const rawValue = String(record[fieldName]).trim();
         const upperRawValue = rawValue.toUpperCase();
 
-        // Log the initial state for problematic fields
-        if (fieldName === "NAFTA" || fieldName === "Producer") {
-          console.log(
-            `[Row ${rowNum}] PRE-TRANSFORM | Field: "${fieldName}" | Value: "${rawValue}"`
-          );
-        }
-
-        // Specific transformations for Finished Product
         if (documentType === "finishedProduct") {
           if (fieldName === "NAFTA") {
             if (upperRawValue === "YES") {
@@ -117,7 +147,7 @@ const applyTransformations = (parsedData, documentType) => {
           }
         }
 
-        // Generic transformation for description-to-code mapping
+        // Mapeo genérico code/description
         const mappedValue = fieldSpec.possibleValues.find((pv) => {
           const [code, description] = pv.split(/\s*=\s*/);
           return (
@@ -134,13 +164,35 @@ const applyTransformations = (parsedData, documentType) => {
         }
       }
 
-      // --- ENFORCE HTS FORMAT ####.##.#### FOR HTS FIELDS ---
+      // HTS ####.##.####
       if (isHTSField(fieldName, documentType)) {
         record[fieldName] = normalizeHTS(record[fieldName]);
       }
     });
 
-    // Standardize part numbers
+    // Country of Origin
+    if (record["Country of Origin"] !== undefined) {
+      record["Country of Origin"] = normalizeCountryOfOrigin(
+        record["Country of Origin"]
+      );
+    }
+    if (record["Country of origin"] !== undefined) {
+      record["Country of origin"] = normalizeCountryOfOrigin(
+        record["Country of origin"]
+      );
+    }
+
+    // Net Cost
+    if (record["Net Cost"] !== undefined) {
+      record["Net Cost"] = normalizeNetCost(record["Net Cost"]);
+    }
+
+    // NAFTA masking (clave para tu caso)
+    if (documentType === "finishedProduct") {
+      maskNaftaDependents(record);
+    }
+
+    // Part numbers a mayúsculas
     if (record["Part Number"]) {
       record["Part Number"] = String(record["Part Number"]).toUpperCase();
     }
@@ -161,4 +213,10 @@ const applyTransformations = (parsedData, documentType) => {
 
 module.exports = {
   applyTransformations,
+  // helpers opcionales
+  normalizeHTS,
+  normalizeCountryOfOrigin,
+  normalizeNetCost,
+  // export por si lo quieres testear
+  maskNaftaDependents,
 };
