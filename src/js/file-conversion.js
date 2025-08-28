@@ -47,7 +47,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       message =
         "El archivo se procesó, pero se encontraron problemas. Revise el reporte de errores.";
       actionsHTML = `
-        <a href="/api/files/${result.jobId}/download" target="_blank">Descargar Archivo (con errores)</a>
         <a href="/api/files/${result.jobId}/errors" target="_blank">Descargar Reporte de Errores</a>
       `;
     }
@@ -259,8 +258,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           </div>
           <div class="job-actions">
             ${
-              job.status === "completed" ||
-              job.status === "completed_with_errors"
+              job.convertedFilePath
                 ? `<button class="download-btn" data-job-id="${job._id}">Download Converted</button>`
                 : ""
             }
