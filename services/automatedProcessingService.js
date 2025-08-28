@@ -184,20 +184,13 @@ const processWatchedFiles = async () => {
       // --- Upload both files in a single SFTP session (batch) ---
       const toPosix = (p) => p.replace(/\\/g, "/");
       const uploads = [];
+      
 
-      const hasErrors = jobStatus !== "completed";
-      const canUploadTxt =
-        !hasErrors || (hasErrors && ALLOW_UPLOAD_ON_VALIDATION_ERROR);
-
-      // (1) CONVERTED: quitar .txt SOLO en remoto y solo si permitido
-      if (
-        canUploadTxt &&
-        convertedFilePath &&
-        (await fileExists(convertedFilePath))
-      ) {
+      // (1) CONVERTED: quitar .txt SOLO en remoto
+      if (convertedFilePath && (await fileExists(convertedFilePath))) {
         const remoteBase = path
           .basename(convertedFilePath)
-          .replace(/\.txt$/i, ""); // FG240948.0725
+          .replace(/\.txt$/i, ""); // <-- sin .txt en remoto
         uploads.push({
           local: convertedFilePath,
           remote: toPosix(path.join(sftpRemoteUploadDir, remoteBase)),
@@ -210,7 +203,7 @@ const processWatchedFiles = async () => {
           local: errorReportPath,
           remote: toPosix(
             path.join(sftpRemoteErrorDir, path.basename(errorReportPath))
-          ),
+          ), // errores conservan su extensión
         });
       }
 
@@ -234,6 +227,8 @@ const processWatchedFiles = async () => {
           );
         }
       };
+
+
       await tryUnlink(convertedFilePath);
       await tryUnlink(errorReportPath);
 
