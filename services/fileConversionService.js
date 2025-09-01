@@ -125,10 +125,12 @@ async function writeToStandardizedTXT(data, filePath, documentType) {
   const { schemaSpec } = getRegistryEntry(documentType);
 
   const lines = records.map((record) => {
-    const nafta = String(record["NAFTA"] ?? "")
+    const naftaRaw = String(record["NAFTA"] ?? "")
       .trim()
       .toUpperCase();
+    const nafta = naftaRaw === "Y" ? "Y" : naftaRaw === "N" ? "N" : ""; // ← fuerza vacío si no es Y/N
     const maskNafta = documentType === "finishedProduct" && nafta !== "Y";
+
     const naftaDependents = new Set([
       "Preference Criterion",
       "Producer",
@@ -142,6 +144,11 @@ async function writeToStandardizedTXT(data, filePath, documentType) {
       let value = record[field.dataElement];
 
       // -------- NAFTA safety mask --------
+      // Si el propio campo es NAFTA y quedó inválido, imprímelo vacío
+      if (field.dataElement === "NAFTA" && nafta === "") {
+        value = "";
+      }
+
       if (maskNafta && naftaDependents.has(field.dataElement)) {
         value = ""; // no imprimir nada para estos campos
       }

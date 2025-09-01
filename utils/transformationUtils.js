@@ -60,6 +60,21 @@ function normalizeNetCost(value) {
   return raw.toUpperCase();
 }
 
+function normalizeNafta(value) {
+  if (value == null) return "";
+  const v = String(value).trim().toUpperCase();
+
+  // vacíos o "basura" → vacío
+  if (v === "" || v === "NA" || v === "N/A" || v === "-") return "";
+
+  // mapeos válidos
+  if (v === "YES" || v === "Y") return "Y";
+  if (v === "NO" || v === "N") return "N";
+
+  // cualquier otro texto → vacío (no imprimimos nada)
+  return "";
+}
+
 /** Limpia campos dependientes de NAFTA cuando NAFTA !== "Y" */
 function maskNaftaDependents(record) {
   const nafta = String(record["NAFTA"] ?? "")
@@ -80,7 +95,6 @@ function maskNaftaDependents(record) {
   }
 }
 
-// Agrega esto arriba, helpers:
 function coerceExcelDate(value) {
   if (value == null || value === "") return null;
 
@@ -155,6 +169,20 @@ const applyTransformations = (parsedData, documentType) => {
 
       // Si el campo no existe o es null/undefined, salta
       if (v === undefined || v === null) return;
+
+      if (documentType === "finishedProduct" && fieldName === "NAFTA") {
+        const norm = normalizeNafta(v);
+        if (norm !== v) {
+          record[fieldName] = norm; // "Y" | "N" | ""
+          console.log(
+            `[Row ${rowNum}] POST-TRANSFORM | Field: "NAFTA" | Changed to: "${
+              norm || "(blank)"
+            }"`
+          );
+        }
+        // no seguimos con más mapeo para NAFTA
+        return;
+      }
 
       // 1) Normalización de enumeraciones (possibleValues)
       if (Array.isArray(fieldSpec.possibleValues)) {
@@ -273,10 +301,8 @@ const applyTransformations = (parsedData, documentType) => {
 
 module.exports = {
   applyTransformations,
-  // helpers opcionales
   normalizeHTS,
   normalizeCountryOfOrigin,
   normalizeNetCost,
-  // export por si lo quieres testear
   maskNaftaDependents,
 };
