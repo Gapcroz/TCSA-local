@@ -80,10 +80,57 @@ function maskNaftaDependents(record) {
   }
 }
 
+// Agrega esto arriba, helpers:
+function coerceExcelDate(value) {
+  if (value == null || value === "") return null;
+
+  // Caso 1: ya es Date
+  if (value instanceof Date && !isNaN(value)) return value;
+
+  const s = String(value).trim();
+
+  // Caso 2: YYYYMMDD (8 dígitos)
+  const ymd = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (ymd) {
+    const y = +ymd[1],
+      m = +ymd[2] - 1,
+      d = +ymd[3];
+    const dt = new Date(y, m, d);
+    if (dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d)
+      return dt;
+    return null;
+  }
+
+  // Caso 3: con separadores (2025-08-01 / 01/08/2025)
+  const digits = s.replace(/\D/g, "");
+  if (digits.length === 8) {
+    const y = +digits.slice(0, 4),
+      m = +digits.slice(4, 6) - 1,
+      d = +digits.slice(6, 8);
+    const dt = new Date(y, m, d);
+    if (dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d)
+      return dt;
+  }
+
+  // Caso 4: serial Excel (número de días desde 1899-12-30)
+  if (!isNaN(+s)) {
+    const serial = +s;
+    if (serial > 0) {
+      const base = new Date(Date.UTC(1899, 11, 30));
+      const dt = new Date(base.getTime() + serial * 86400000);
+      // pásalo a fecha local sin hora
+      return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+    }
+  }
+
+  return null;
+}
+
 /**
  * Applies standard transformations to parsed data, such as normalizing enum values.
  * This step runs BEFORE validation to clean up the data.
  */
+
 const applyTransformations = (parsedData, documentType) => {
   const transformedData = { ...parsedData };
   const records = transformedData.Sheet1;
@@ -101,17 +148,21 @@ const applyTransformations = (parsedData, documentType) => {
   records.forEach((record, index) => {
     const rowNum = index + 2;
 
+    // --- Transformaciones por campo (según schema) ---
     schemaSpec.forEach((fieldSpec) => {
       const fieldName = fieldSpec.dataElement;
-      if (record[fieldName] === undefined || record[fieldName] === null) {
-        return; // Skip empty fields
-      }
+      const v = record[fieldName];
 
+      // Si el campo no existe o es null/undefined, salta
+      if (v === undefined || v === null) return;
+
+      // 1) Normalización de enumeraciones (possibleValues)
       if (Array.isArray(fieldSpec.possibleValues)) {
-        const rawValue = String(record[fieldName]).trim();
+        const rawValue = String(v).trim();
         const upperRawValue = rawValue.toUpperCase();
 
         if (documentType === "finishedProduct") {
+          // NAFTA: YES/NO -> Y/N
           if (fieldName === "NAFTA") {
             if (upperRawValue === "YES") {
               record[fieldName] = "Y";
@@ -129,6 +180,7 @@ const applyTransformations = (parsedData, documentType) => {
             }
           }
 
+          // Producer: YES/NO -> Yes / No (1)
           if (fieldName === "Producer") {
             if (upperRawValue === "YES") {
               record[fieldName] = "Yes";
@@ -147,7 +199,7 @@ const applyTransformations = (parsedData, documentType) => {
           }
         }
 
-        // Mapeo genérico code/description
+        // Mapeo genérico code=description
         const mappedValue = fieldSpec.possibleValues.find((pv) => {
           const [code, description] = pv.split(/\s*=\s*/);
           return (
@@ -164,13 +216,20 @@ const applyTransformations = (parsedData, documentType) => {
         }
       }
 
-      // HTS ####.##.####
+      // 2) HTS ####.##.####
       if (isHTSField(fieldName, documentType)) {
-        record[fieldName] = normalizeHTS(record[fieldName]);
+        record[fieldName] = normalizeHTS(v);
+      }
+
+      // 3) Fechas (tipo D): convierte a Date (acepta YYYYMMDD, con separadores, o serial Excel)
+      if (fieldSpec.type === "D") {
+        record[fieldName] = coerceExcelDate(v); // queda Date o null
       }
     });
 
-    // Country of Origin
+    // --- Transformaciones por registro (no atadas a un campo del schema) ---
+
+    // Country of Origin (acepta nombre o código)
     if (record["Country of Origin"] !== undefined) {
       record["Country of Origin"] = normalizeCountryOfOrigin(
         record["Country of Origin"]
@@ -187,7 +246,7 @@ const applyTransformations = (parsedData, documentType) => {
       record["Net Cost"] = normalizeNetCost(record["Net Cost"]);
     }
 
-    // NAFTA masking (clave para tu caso)
+    // NAFTA masking: si NAFTA !== "Y" limpia dependientes
     if (documentType === "finishedProduct") {
       maskNaftaDependents(record);
     }
@@ -210,6 +269,7 @@ const applyTransformations = (parsedData, documentType) => {
 
   return transformedData;
 };
+
 
 module.exports = {
   applyTransformations,
