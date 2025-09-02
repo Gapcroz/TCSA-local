@@ -190,26 +190,12 @@ const applyTransformations = (parsedData, documentType) => {
         const upperRawValue = rawValue.toUpperCase();
 
         if (documentType === "finishedProduct") {
-          // NAFTA: YES/NO -> Y/N
-          if (fieldName === "NAFTA") {
-            if (upperRawValue === "YES") {
-              record[fieldName] = "Y";
-              console.log(
-                `[Row ${rowNum}] POST-TRANSFORM | Field: "${fieldName}" | Changed to: "Y"`
-              );
-              return;
-            }
-            if (upperRawValue === "NO") {
-              record[fieldName] = "N";
-              console.log(
-                `[Row ${rowNum}] POST-TRANSFORM | Field: "${fieldName}" | Changed to: "N"`
-              );
-              return;
-            }
-          }
-
           // Producer: YES/NO -> Yes / No (1)
-          if (fieldName === "Producer") {
+          // (opcional) Solo mapear si NAFTA aplica:
+          const naftaNorm = String(record["NAFTA"] ?? "")
+            .trim()
+            .toUpperCase();
+          if (fieldName === "Producer" && naftaNorm === "Y") {
             if (upperRawValue === "YES") {
               record[fieldName] = "Yes";
               console.log(
@@ -227,7 +213,7 @@ const applyTransformations = (parsedData, documentType) => {
           }
         }
 
-        // Mapeo genérico code=description
+        // Mapeo genérico code=description...
         const mappedValue = fieldSpec.possibleValues.find((pv) => {
           const [code, description] = pv.split(/\s*=\s*/);
           return (
