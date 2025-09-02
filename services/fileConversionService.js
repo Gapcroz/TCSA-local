@@ -9,6 +9,10 @@ const {
 } = require("../utils/validationUtils");
 const { applyTransformations } = require("../utils/transformationUtils");
 
+const WRITE_TXT_ON_VALIDATION_ERROR =
+  (process.env.WRITE_TXT_ON_VALIDATION_ERROR || "false").toLowerCase() ===
+  "true";
+
 // Service that encapsulates file conversion logic
 const processFileForConversion = async (
   fileBuffer,
@@ -33,11 +37,9 @@ const processFileForConversion = async (
   switch (fileExtension) {
     case ".xls":
     case ".xlsx":
-      // Pass documentType to the parser for schema lookup
       parsedData = await parseXLSX(fileBuffer, documentType);
       break;
     case ".csv":
-      // Pass documentType to the parser for schema lookup
       parsedData = await parseCSV(fileBuffer, documentType);
       break;
     case ".txt":
@@ -48,7 +50,7 @@ const processFileForConversion = async (
   }
 
   // Step 2: Transformation (e.g., normalize enum values)
-  let transformedData = applyTransformations(parsedData, documentType);
+  const transformedData = applyTransformations(parsedData, documentType);
 
   // Step 3: Validation (Data Integrity and Business Rules)
   const integrityResult = validateDataIntegrity(transformedData, documentType);
@@ -66,24 +68,33 @@ const processFileForConversion = async (
     }
   }
 
-  // Step 4: Generation of the standardized plain text file
-  const outputFileName = `${path.parse(originalName).name}.${
-    outputFormat || "txt"
-  }`;
-  const outputFilePath = path.join(
-    __dirname,
-    "..",
-    "temp_converted_files",
-    outputFileName
-  );
-  await fs.mkdir(path.dirname(outputFilePath), { recursive: true });
+  const hasErrors = errorReport.length > 0;
 
-  await writeToStandardizedTXT(transformedData, outputFilePath, documentType);
+  // Step 4: (Opcional) generación del TXT
+  const baseName = path.parse(originalName).name;
+  const outputExt = outputFormat || "txt";
+  let convertedFilePath = null;
+
+  if (!hasErrors || WRITE_TXT_ON_VALIDATION_ERROR) {
+    const outputFileName = `${baseName}.${outputExt}`;
+    convertedFilePath = path.join(
+      __dirname,
+      "..",
+      "temp_converted_files",
+      outputFileName
+    );
+    await fs.mkdir(path.dirname(convertedFilePath), { recursive: true });
+    await writeToStandardizedTXT(
+      transformedData,
+      convertedFilePath,
+      documentType
+    );
+  }
 
   // Step 5: Generate error report if any errors occurred
   let errorReportPath = null;
-  if (errorReport.length > 0) {
-    const errorReportFileName = `${path.parse(originalName).name}-errors.json`;
+  if (hasErrors) {
+    const errorReportFileName = `${baseName}-errors.json`;
     errorReportPath = path.join(
       __dirname,
       "..",
@@ -95,15 +106,14 @@ const processFileForConversion = async (
   }
 
   return {
-    convertedFilePath: outputFilePath,
-    errorReportPath: errorReportPath,
-    status: errorReport.length > 0 ? "completed_with_errors" : "completed",
+    convertedFilePath, // puede ser null si no generamos TXT por errores
+    errorReportPath,
+    status: hasErrors ? "completed_with_errors" : "completed",
   };
 };
 
 /**
  * Writes data to a standardized plain text file based on the schema.
- * (This function is unchanged).
  */
 async function writeToStandardizedTXT(data, filePath, documentType) {
   const records = data.Sheet1;
@@ -115,9 +125,35 @@ async function writeToStandardizedTXT(data, filePath, documentType) {
   const { schemaSpec } = getRegistryEntry(documentType);
 
   const lines = records.map((record) => {
+    const naftaRaw = String(record["NAFTA"] ?? "")
+      .trim()
+      .toUpperCase();
+    const nafta = naftaRaw === "Y" ? "Y" : naftaRaw === "N" ? "N" : ""; // ← fuerza vacío si no es Y/N
+    const maskNafta = documentType === "finishedProduct" && nafta !== "Y";
+
+    const naftaDependents = new Set([
+      "Preference Criterion",
+      "Producer",
+      "Net Cost",
+      "Period (From)",
+      "Period (To)",
+    ]);
+
     let line = "";
     for (const field of schemaSpec) {
       let value = record[field.dataElement];
+
+      // -------- NAFTA safety mask --------
+      // Si el propio campo es NAFTA y quedó inválido, imprímelo vacío
+      if (field.dataElement === "NAFTA" && nafta === "") {
+        value = "";
+      }
+
+      if (maskNafta && naftaDependents.has(field.dataElement)) {
+        value = ""; // no imprimir nada para estos campos
+      }
+      // -----------------------------------
+
       let formattedValue = "";
 
       if (value !== null && value !== undefined) {
@@ -127,7 +163,7 @@ async function writeToStandardizedTXT(data, filePath, documentType) {
             const formatMatch = field.format.match(
               /9\((\d+)\)\.?9?\(?(\d+)?\)?/
             );
-            const decimalLengthInFormat = formatMatch[2]
+            const decimalLengthInFormat = formatMatch?.[2]
               ? parseInt(formatMatch[2], 10)
               : 0;
             formattedValue = num
@@ -140,6 +176,9 @@ async function writeToStandardizedTXT(data, filePath, documentType) {
             const month = (value.getMonth() + 1).toString().padStart(2, "0");
             const day = value.getDate().toString().padStart(2, "0");
             formattedValue = `${year}${month}${day}`;
+          } else {
+            // si llega string vacío u otro, dejamos vacío
+            formattedValue = "";
           }
         } else {
           formattedValue = String(value);

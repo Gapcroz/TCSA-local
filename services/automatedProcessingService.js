@@ -5,7 +5,6 @@ const fileConversionService = require("./fileConversionService");
 const sftpService = require("./sftpService");
 const conversionJobRepository = require("../repositories/conversionJobRepository");
 const { getDocumentTypeByPrefix } = require("../data/documentTypeRegistry");
-// --- NEW: Import the document detector utility ---
 const { detectDocumentType } = require("../utils/documentDetector");
 
 const INPUT_DIR =
@@ -19,6 +18,11 @@ const FAILED_DIR =
   path.join(__dirname, "..", "sftp_failed");
 const TEMP_OUTPUT_DIR = path.join(__dirname, "..", "temp_converted_files");
 const TEMP_ERROR_DIR = path.join(__dirname, "..", "temp_error_reports");
+
+// ¿Permitir subir el TXT aunque haya errores de validación?
+const ALLOW_UPLOAD_ON_VALIDATION_ERROR =
+  (process.env.ALLOW_UPLOAD_ON_VALIDATION_ERROR || "false").toLowerCase() ===
+  "true";
 
 const ensureDirectoriesExist = async () => {
   await fs.mkdir(INPUT_DIR, { recursive: true });
@@ -78,12 +82,10 @@ const processWatchedFiles = async () => {
     let errorReportPath = null;
 
     try {
-      // Read the file buffer once for detection and processing
       fileBuffer = await fs.readFile(filePath);
 
-      // --- AUTOMATIC DOCUMENT TYPE DETECTION LOGIC ---
+      // --- Detección automática del tipo ---
       documentType = await detectDocumentType(fileBuffer, originalName);
-
       if (documentType) {
         console.log(
           `[Automated Service] Detected document type via content analysis: "${documentType}"`
@@ -94,7 +96,6 @@ const processWatchedFiles = async () => {
         );
         const filePrefix = originalName.substring(0, 2).toUpperCase();
         const registryEntry = getDocumentTypeByPrefix(filePrefix);
-
         if (registryEntry) {
           documentType = registryEntry.docType;
           console.log(
@@ -114,7 +115,7 @@ const processWatchedFiles = async () => {
         );
         continue;
       }
-      // --- END OF DETECTION LOGIC ---
+      // --- Fin detección ---
 
       const outputFormat = "txt";
       const conversionOptions = { documentType };
@@ -141,9 +142,9 @@ const processWatchedFiles = async () => {
           true
         );
 
-      convertedFilePath = processingResult.convertedFilePath;
+      convertedFilePath = processingResult.convertedFilePath; // puede ser null
       errorReportPath = processingResult.errorReportPath;
-      const jobStatus = processingResult.status;
+      const jobStatus = processingResult.status; // "completed" | "completed_with_errors" | "failed"
 
       await conversionJobRepository.updateConversionJobStatus(
         newJob._id,
@@ -153,6 +154,12 @@ const processWatchedFiles = async () => {
           errorReportPath,
           completedAt: new Date(),
         }
+      );
+
+      console.log(
+        `[Automated Service] Job result for ${originalName} -> status=${jobStatus}, convertedFilePath=${
+          convertedFilePath || "null"
+        }, errorReportPath=${errorReportPath || "null"}`
       );
 
       const sftpRemoteUploadDir =
@@ -169,37 +176,48 @@ const processWatchedFiles = async () => {
         }
       };
 
-      // --- Upload both files in a single SFTP session (batch) ---
+      // --- Subida por SFTP ---
       const toPosix = (p) => p.replace(/\\/g, "/");
       const uploads = [];
-      
 
-      // (1) CONVERTED: quitar .txt SOLO en remoto
-      if (convertedFilePath && (await fileExists(convertedFilePath))) {
+      const hasErrors = jobStatus !== "completed";
+      const canUploadTxt =
+        !hasErrors || (hasErrors && ALLOW_UPLOAD_ON_VALIDATION_ERROR);
+
+      // (1) TXT convertido (sin .txt en remoto)
+      if (
+        canUploadTxt &&
+        convertedFilePath &&
+        (await fileExists(convertedFilePath))
+      ) {
         const remoteBase = path
           .basename(convertedFilePath)
-          .replace(/\.txt$/i, ""); // <-- sin .txt en remoto
+          .replace(/\.txt$/i, "");
         uploads.push({
           local: convertedFilePath,
           remote: toPosix(path.join(sftpRemoteUploadDir, remoteBase)),
         });
       }
 
-      // (2) ERROR REPORT: se sube con su extensión original
+      // (2) Reporte de errores (si existe)
       if (errorReportPath && (await fileExists(errorReportPath))) {
         uploads.push({
           local: errorReportPath,
           remote: toPosix(
             path.join(sftpRemoteErrorDir, path.basename(errorReportPath))
-          ), // errores conservan su extensión
+          ),
         });
       }
 
       if (uploads.length) {
         await sftpService.uploadFilesViaSftp(uploads);
+      } else {
+        console.log(
+          "[SFTP] No files queued for upload (no TXT permitido/creado y/o no hubo reporte de error)."
+        );
       }
 
-      // cleanup local artifacts
+      // --- Limpieza de artefactos locales ---
       const tryUnlink = async (p) => {
         if (!p) return;
         try {
@@ -211,16 +229,18 @@ const processWatchedFiles = async () => {
           );
         }
       };
-
-
       await tryUnlink(convertedFilePath);
       await tryUnlink(errorReportPath);
 
-      // move original to processed
-      const newPath = path.join(PROCESSED_DIR, originalName);
+      // --- DECISIÓN DE DESTINO: SOLO POR STATUS ---
+      // Si el job terminó "completed" -> PROCESSED; cualquier otro -> FAILED.
+      const succeeded = jobStatus === "completed";
+      const targetDir = succeeded ? PROCESSED_DIR : FAILED_DIR;
+
+      const newPath = path.join(targetDir, originalName);
       await fs.rename(filePath, newPath);
       console.log(
-        `[Automated Service] Successfully processed and moved ${originalName} to ${PROCESSED_DIR}`
+        `[Automated Service] Moved ${originalName} to ${targetDir} (status=${jobStatus})`
       );
     } catch (error) {
       console.error(
@@ -248,12 +268,11 @@ const processWatchedFiles = async () => {
         );
       }
       // Cleanup partial files if they exist
-      if (convertedFilePath) {
-        await fs.unlink(convertedFilePath).catch(() => {});
-      }
-      if (errorReportPath) {
-        await fs.unlink(errorReportPath).catch(() => {});
-      }
+      try {
+        if (convertedFilePath)
+          await fs.unlink(convertedFilePath).catch(() => {});
+        if (errorReportPath) await fs.unlink(errorReportPath).catch(() => {});
+      } catch {}
     }
   }
 };
