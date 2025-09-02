@@ -18,7 +18,7 @@ const sftpConfig = {
 };
 
 const NAME_STRATEGY = (
-  process.env.SFTP_NAME_CONFLICT_STRATEGY || "timestamp"
+  process.env.SFTP_NAME_CONFLICT_STRATEGY || "overwrite"
 ).toLowerCase();
 
 /** Util: separa nombre y extensión para rutas POSIX */
@@ -40,6 +40,11 @@ async function safeExists(sftp, p) {
 async function ensureUniqueRemotePath(sftp, remotePath) {
   if (!(await safeExists(sftp, remotePath))) return remotePath;
 
+  // 👉 overwrite/none: NO renombrar; deja que put() reemplace el archivo
+  if (NAME_STRATEGY === "overwrite" || NAME_STRATEGY === "none") {
+    return remotePath;
+  }
+
   const dir = path.posix.dirname(remotePath);
   const base = path.posix.basename(remotePath);
   const { name, ext } = splitExtPosix(base);
@@ -54,7 +59,7 @@ async function ensureUniqueRemotePath(sftp, remotePath) {
       if (!(await safeExists(sftp, candidate))) return candidate;
       i += 1;
     }
-  } else {
+  } else if (NAME_STRATEGY === "timestamp") {
     // timestamp (YYYYMMDDHHMMSS)
     const stamp = new Date()
       .toISOString()
@@ -68,6 +73,8 @@ async function ensureUniqueRemotePath(sftp, remotePath) {
     }
     return candidate;
   }
+  // fallback seguro
+  return remotePath;
 }
 
 function isTransientEndError(err) {
