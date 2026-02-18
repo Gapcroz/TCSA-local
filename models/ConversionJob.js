@@ -28,6 +28,9 @@ const conversionJobSchema = new mongoose.Schema({
   },
   convertedFilePath: String,
   errorReportPath: String,
+  // Rutas remotas en SFTP para poder gestionar reemplazos
+  remoteConvertedPath: String,
+  remoteErrorPath: String,
   createdAt: {
     type: Date,
     default: Date.now,

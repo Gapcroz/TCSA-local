@@ -14,35 +14,73 @@ async function fetchUsers() {
       if (data.length > 0) {
         data.forEach((user) => {
           const row = usersTableBody.insertRow();
-          row.innerHTML = `
-            <td>${user.displayName || user.email}</td>
-            <td>
-              <select id="role-${user.id}" data-userid="${user.id}">
-                <option value="user" ${
-                  user.role === 'user' ? 'selected' : ''
-                }>Usuario</option>
-                <option value="admin" ${
-                  user.role === 'admin' ? 'selected' : ''
-                }>Admin</option>
-              </select>
-            </td>
-            <td>
-              <input type="checkbox" id="isActive-${user.id}" data-userid="${
-            user.id
-          }" ${user.isActive ? 'checked' : ''}>
-              <label for="isActive-${user.id}" class="${
-            user.isActive ? 'status-active' : 'status-inactive'
-          }">${user.isActive ? 'Activo' : 'Inactivo'}</label>
-            </td>
-            <td>
-              <button class="save-btn" onclick="updateUser('${
-                user.id
-              }')">Guardar</button>
-            </td>
-          `;
+          
+          // Columna 1: Display Name
+          const cellName = row.insertCell();
+          cellName.textContent = user.displayName || user.email;
+          
+          // Columna 2: Role Select
+          const cellRole = row.insertCell();
+          const roleSelect = document.createElement('select');
+          roleSelect.id = `role-${user.id}`;
+          roleSelect.dataset.userid = user.id;
+          
+          const optionUser = document.createElement('option');
+          optionUser.value = 'user';
+          optionUser.textContent = 'Usuario';
+          optionUser.selected = user.role === 'user';
+          
+          const optionAdmin = document.createElement('option');
+          optionAdmin.value = 'admin';
+          optionAdmin.textContent = 'Admin';
+          optionAdmin.selected = user.role === 'admin';
+          
+          roleSelect.appendChild(optionUser);
+          roleSelect.appendChild(optionAdmin);
+          cellRole.appendChild(roleSelect);
+          
+          // Columna 3: Active Status
+          const cellStatus = row.insertCell();
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.id = `isActive-${user.id}`;
+          checkbox.dataset.userid = user.id;
+          checkbox.checked = user.isActive;
+          
+          const label = document.createElement('label');
+          label.htmlFor = `isActive-${user.id}`;
+          label.className = user.isActive ? 'status-active' : 'status-inactive';
+          label.textContent = user.isActive ? 'Activo' : 'Inactivo';
+          
+          cellStatus.appendChild(checkbox);
+          cellStatus.appendChild(label);
+          
+          // Columna 4: Botones de acción
+          const cellActions = row.insertCell();
+          
+          const saveBtn = document.createElement('button');
+          saveBtn.className = 'save-btn';
+          saveBtn.textContent = 'Guardar';
+          saveBtn.dataset.userid = user.id;
+          saveBtn.addEventListener('click', () => handleUpdateUser(user.id));
+          
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'delete-btn';
+          deleteBtn.textContent = 'Eliminar';
+          deleteBtn.dataset.userid = user.id;
+          deleteBtn.dataset.email = user.email;
+          deleteBtn.addEventListener('click', () => handleDeleteUser(user.id, user.email));
+          
+          cellActions.appendChild(saveBtn);
+          cellActions.appendChild(deleteBtn);
         });
       } else {
-        usersTableBody.innerHTML = `<tr><td colspan="4" class="no-users">No hay usuarios registrados.</td></tr>`;
+        // Usar DOM API en lugar de innerHTML para consistencia
+        const row = usersTableBody.insertRow();
+        const cell = row.insertCell();
+        cell.colSpan = 4;
+        cell.className = 'no-users';
+        cell.textContent = 'No hay usuarios registrados.';
       }
     } else {
       console.error('Error fetching users:', data.message);
@@ -67,7 +105,8 @@ async function fetchUsers() {
   }
 }
 
-window.updateUser = async function(userId) { // Make global for onclick
+// Función para actualizar usuario
+async function handleUpdateUser(userId) {
   const roleSelect = document.getElementById(`role-${userId}`);
   const isActiveCheckbox = document.getElementById(`isActive-${userId}`);
 
@@ -101,6 +140,30 @@ window.updateUser = async function(userId) { // Make global for onclick
   } catch (error) {
     console.error('Error updating user:', error);
     displayMessage(adminMessageElement, 'Error de red o del servidor.', 'error');
+  }
+}
+
+// Función para eliminar usuario
+async function handleDeleteUser(userId, userEmail) {
+  const confirmDelete = confirm(`¿Estás seguro de eliminar al usuario "${userEmail}"? Esta acción no se puede deshacer.`);
+  if (!confirmDelete) return;
+
+  try {
+    const response = await fetch(`/api/admin/users/${userId}`, {
+      method: 'DELETE',
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      displayMessage(adminMessageElement, data.message, 'success');
+      fetchUsers();
+    } else {
+      displayMessage(adminMessageElement, data.message, 'error');
+    }
+  } catch (error) {
+    console.error('Error al eliminar usuario:', error);
+    displayMessage(adminMessageElement, 'Error al eliminar usuario.', 'error');
   }
 }
 

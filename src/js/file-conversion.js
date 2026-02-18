@@ -38,9 +38,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (result.status === "completed") {
       uploadResultDiv.classList.add("success");
-      title = "Conversión Exitosa";
-      message = `El archivo se ha convertido correctamente como '${result.documentType}'.`;
-      actionsHTML = `<a href="/api/files/${result.jobId}/download" target="_blank">Descargar Archivo Convertido</a>`;
+      title = "Exportación Exitosa";
+      message = `El archivo se ha exportado correctamente como '${result.documentType}'.`;
+      actionsHTML = `<a href="/api/files/${result.jobId}/download" target="_blank">Descargar Archivo Exportado</a>`;
     } else if (result.status === "completed_with_errors") {
       uploadResultDiv.classList.add("warning");
       title = "Completada con Errores";
@@ -259,7 +259,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           <div class="job-actions">
             ${
               job.convertedFilePath
-                ? `<button class="download-btn" data-job-id="${job._id}">Download Converted</button>`
+                ? `<button class="download-btn" data-job-id="${job._id}">Download Exported</button>`
                 : ""
             }
             ${

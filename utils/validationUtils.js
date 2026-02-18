@@ -4,6 +4,8 @@ const { isValidCountryCode } = require("../data/countryCatalog");
 // Reglas de formato
 const HTS_FORMATTED_RE = /^\d{4}\.\d{2}\.\d{4}$/; // ####.##.####
 const isBlank = (v) => v === null || v === undefined || String(v).trim() === "";
+const ALLOW_EMPTY_MANDATORY_FIELDS =
+  (process.env.ALLOW_EMPTY_MANDATORY_FIELDS || "true").toLowerCase() === "true";
 
 /**
  * Validates the integrity of parsed data against its schema specification.
@@ -35,7 +37,11 @@ const validateDataIntegrity = (data, documentType) => {
       const value = record[fieldName];
 
       // Campos obligatorios (M)
-      if (fieldSpec.requirement === "M" && isBlank(value)) {
+      if (
+        fieldSpec.requirement === "M" &&
+        isBlank(value) &&
+        !ALLOW_EMPTY_MANDATORY_FIELDS
+      ) {
         errors.push({
           type: "Integrity Error",
           message: `Row ${rowNum}: Mandatory field "${fieldName}" is missing or empty.`,
@@ -85,6 +91,20 @@ const validateDataIntegrity = (data, documentType) => {
       });
     } else if (documentType === "rawMaterial") {
       ["Importation HTS Code", "Exportation HTS Code"].forEach((fn) => {
+        const v = record[fn];
+        if (!isBlank(v) && !HTS_FORMATTED_RE.test(String(v))) {
+          errors.push({
+            type: "Integrity Error",
+            message: `Row ${rowNum}: Field "${fn}" must match format ####.##.#### (e.g., 9019.10.9999). Got "${v}".`,
+            field: fn,
+            row: rowNum,
+            value: v,
+            expectedFormat: "####.##.####",
+          });
+        }
+      });
+    } else if (documentType === "splScrap") {
+      ["US IMP HTS Code", "US EXP HTS Code"].forEach((fn) => {
         const v = record[fn];
         if (!isBlank(v) && !HTS_FORMATTED_RE.test(String(v))) {
           errors.push({

@@ -2,6 +2,7 @@ const { getRegistryEntry } = require("../data/documentTypeRegistry");
 
 // --- Country catalog helpers ---
 const { isValidCountryCode, nameToCode } = require("../data/countryCatalog");
+const { normalizeUOM } = require("../data/uomCatalog");
 
 // --- HTS helpers ---
 const HTS_FORMATTED_RE = /^\d{4}\.\d{2}\.\d{4}$/; // ####.##.####
@@ -33,6 +34,9 @@ function isHTSField(fieldName, documentType) {
       fieldName === "USA Exportation HTS Code" // alias aceptado
     );
   }
+  if (documentType === "splScrap") {
+    return fieldName === "US IMP HTS Code" || fieldName === "US EXP HTS Code";
+  }
   return false;
 }
 
@@ -40,8 +44,17 @@ function isHTSField(fieldName, documentType) {
 function normalizeCountryOfOrigin(value) {
   if (value == null) return value;
   const raw = String(value).trim();
-  const up = raw.toUpperCase();
 
+  // If it looks like "MX-Mexico" or "MX / Mexico", take the code part
+  const parts = raw.split(/[\s/-]+/).filter(Boolean);
+  if (parts.length) {
+    const codeCandidate = parts[0].toUpperCase();
+    if (codeCandidate.length === 2 && isValidCountryCode(codeCandidate)) {
+      return codeCandidate;
+    }
+  }
+
+  const up = raw.toUpperCase();
   if (up.length === 2 && isValidCountryCode(up)) return up;
 
   const guessed = nameToCode(raw);
@@ -95,6 +108,49 @@ function maskNaftaDependents(record) {
   }
 }
 
+function normalizeTypeOfGoods(value) {
+  if (value == null) return value;
+  const raw = String(value).trim();
+  const up = raw.toUpperCase();
+  // Accept codes directly
+  if (["FG", "RM", "EQ"].includes(up)) return up;
+  // Common variants with description
+  if (up.startsWith("FG")) return "FG";
+  if (up.startsWith("RM")) return "RM";
+  if (up.startsWith("EQ")) return "EQ";
+  return raw;
+}
+
+function normalizeSplShipment(value) {
+  if (value == null) return value;
+  const raw = String(value).trim();
+  const compact = raw.toUpperCase().replace(/[\s_-]+/g, "");
+  if (compact.startsWith("NORTH")) return "Northbound";
+  if (compact.startsWith("SOUTH")) return "Southbound";
+  if (compact.startsWith("SCRAP")) return "Scrap";
+  if (compact === "NB") return "Northbound";
+  if (compact === "SB") return "Southbound";
+  return raw;
+}
+
+function normalizeSplRegime(value) {
+  if (value == null) return value;
+  const raw = String(value).trim();
+  const up = raw.toUpperCase();
+  if (up.startsWith("PERM")) return "Permanent";
+  if (up.startsWith("TEMP")) return "Temporary";
+  return raw;
+}
+
+function normalizeSplPowerSource(value) {
+  if (value == null) return value;
+  const raw = String(value).trim();
+  const up = raw.toUpperCase();
+  if (up === "N/A" || up === "NA" || up === "NOT APPLICABLE") {
+    return "Not applicable";
+  }
+  return raw;
+}
 function coerceExcelDate(value) {
   if (value == null || value === "") return null;
 
@@ -170,6 +226,22 @@ const applyTransformations = (parsedData, documentType) => {
       // Si el campo no existe o es null/undefined, salta
       if (v === undefined || v === null) return;
 
+      // splScrap: normalize enums / codes
+      if (documentType === "splScrap") {
+        if (fieldName === "Type of goods") {
+          record[fieldName] = normalizeTypeOfGoods(v);
+        } else if (fieldName === "Type of shipment") {
+          const norm = normalizeSplShipment(v);
+          if (norm !== v) record[fieldName] = norm;
+        } else if (fieldName === "Regime") {
+          const norm = normalizeSplRegime(v);
+          if (norm !== v) record[fieldName] = norm;
+        } else if (fieldName === "Power Source Type") {
+          const norm = normalizeSplPowerSource(v);
+          if (norm !== v) record[fieldName] = norm;
+        }
+      }
+
       if (documentType === "finishedProduct" && fieldName === "NAFTA") {
         const norm = normalizeNafta(v);
         if (norm !== v) {
@@ -235,6 +307,21 @@ const applyTransformations = (parsedData, documentType) => {
         record[fieldName] = normalizeHTS(v);
       }
 
+      // 2.1) UOM (acepta código o nombre, devuelve código estándar)
+      const isUomField =
+        fieldName &&
+        fieldName.replace(/\s+/g, " ").trim().toLowerCase() ===
+          "unit of measure";
+      if (isUomField) {
+        const norm = normalizeUOM(v);
+        if (norm !== v) {
+          record[fieldName] = norm;
+          console.log(
+            `[Row ${rowNum}] POST-TRANSFORM | ${fieldName} -> "${norm}"`
+          );
+        }
+      }
+
       // 3) Fechas (tipo D): convierte a Date (acepta YYYYMMDD, con separadores, o serial Excel)
       if (fieldSpec.type === "D") {
         record[fieldName] = coerceExcelDate(v); // queda Date o null
@@ -283,7 +370,6 @@ const applyTransformations = (parsedData, documentType) => {
 
   return transformedData;
 };
-
 
 module.exports = {
   applyTransformations,

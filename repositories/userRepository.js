@@ -45,6 +45,11 @@ const updateUserAccess = async (userId, isActive, role) => {
   return await User.findByIdAndUpdate(userId, { isActive, role }, { new: true });
 };
 
+const deleteUserById = async (userId, session = null) => {
+  const options = session ? { session } : {};
+  return await User.findByIdAndDelete(userId, options);
+};
+
 const getAllUsers = async () => {
   return await User.find({});
 };
@@ -70,6 +75,7 @@ const unlinkGoogleAccount = async (userId) => {
   }
   return await User.findByIdAndUpdate(userId, { $unset: { googleId: 1 } }, { new: true }); // $unset elimina el campo
 };
+
 module.exports = {
   findUserById,
   findUserByEmail,
@@ -80,5 +86,6 @@ module.exports = {
   getAllUsers,
   updateUserPassword,
   linkGoogleAccount,
-  unlinkGoogleAccount
+  unlinkGoogleAccount,
+  deleteUserById,
 };

@@ -3,9 +3,11 @@ const {
   FinishedProduct,
   RawMaterial,
   BillOfMaterials,
+  SPLScrap,
   finishedProductSchemaSpec,
   rawMaterialSchemaSpec,
   billOfMaterialsSchemaSpec,
+  splScrapSchemaSpec,
 } = require("./dataSchemas");
 
 const documentRegistry = {
@@ -26,6 +28,12 @@ const documentRegistry = {
     schemaSpec: billOfMaterialsSchemaSpec,
     filePrefix: "BM",
     docType: "billOfMaterials",
+  },
+  splScrap: {
+    model: SPLScrap,
+    schemaSpec: splScrapSchemaSpec,
+    filePrefix: ["PI", "PE"],
+    docType: "PackingList",
   },
 };
 
@@ -64,13 +72,16 @@ const getSchemaUniqueness = () => {
 const schemaUniquenessMap = getSchemaUniqueness();
 // --- END of new section ---
 
-const prefixToConfigMap = Object.values(documentRegistry).reduce(
-  (acc, config) => {
-    acc[config.filePrefix] = config;
-    return acc;
-  },
-  {}
-);
+const prefixToConfigMap = {};
+Object.values(documentRegistry).forEach((cfg) => {
+  const prefixes = Array.isArray(cfg.filePrefix)
+    ? cfg.filePrefix
+    : [cfg.filePrefix];
+  prefixes.forEach((p) => {
+    if (!p) return;
+    prefixToConfigMap[String(p).toUpperCase()] = cfg;
+  });
+});
 
 const getRegistryEntry = (identifier) => {
   let entry = documentRegistry[identifier] || prefixToConfigMap[identifier];

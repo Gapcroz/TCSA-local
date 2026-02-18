@@ -14,5 +14,6 @@ const ADMIN_PROTECTED = [
 // Todas las rutas de administración requieren que el usuario sea admin
 router.get('/users', ADMIN_PROTECTED, adminController.getAllUsers);
 router.put('/users/:userId/access', ADMIN_PROTECTED, adminController.updateUserAccess);
+router.delete('/users/:userId', ADMIN_PROTECTED, adminController.deleteUser);
 
 module.exports = router;

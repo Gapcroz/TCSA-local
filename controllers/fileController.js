@@ -4,6 +4,7 @@ const conversionJobRepository = require("../repositories/conversionJobRepository
 const path = require("path");
 const fs = require("fs/promises");
 const { detectDocumentType } = require("../utils/documentDetector");
+const { validateFormatCompatibility } = require("../utils/documentFormatRules");
 
 // Middleware de Multer (configúralo una vez)
 const multer = require("multer");
@@ -74,6 +75,19 @@ const uploadAndConvertFile = async (req, res) => {
           "Could not determine document type. Please select it manually.",
         errorType: "AMBIGUITY_DETECTED", // This is the key for the frontend
       });
+    }
+  }
+
+  // Validar que el formato de salida sea compatible con el tipo de documento
+  if (conversionOptions.documentType) {
+    const validation = validateFormatCompatibility(
+      conversionOptions.documentType, 
+      outputFormat
+    );
+    
+    if (!validation.isValid) {
+      await fs.unlink(tempFilePath);
+      return res.status(400).json({ message: validation.message });
     }
   }
   // --- END OF REVISED LOGIC ---
