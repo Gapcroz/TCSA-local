@@ -24,6 +24,30 @@ const ALLOW_UPLOAD_ON_VALIDATION_ERROR =
   (process.env.ALLOW_UPLOAD_ON_VALIDATION_ERROR || "false").toLowerCase() ===
   "true";
 
+const buildSftpTargets = () => {
+  if (process.env.SFTP_TARGETS_JSON) {
+    try {
+      const parsed = JSON.parse(process.env.SFTP_TARGETS_JSON);
+      if (Array.isArray(parsed) && parsed.length) {
+        return parsed;
+      }
+    } catch (e) {
+      console.error("[SFTP] Invalid SFTP_TARGETS_JSON:", e.message);
+    }
+  }
+  return [
+    {
+      host: process.env.SFTP_HOST,
+      port: process.env.SFTP_PORT,
+      username: process.env.SFTP_USERNAME,
+      password: process.env.SFTP_PASSWORD,
+      privateKeyPath: process.env.SFTP_PRIVATE_KEY_PATH,
+    },
+  ];
+};
+
+const SFTP_TARGETS = buildSftpTargets();
+
 const ensureDirectoriesExist = async () => {
   await fs.mkdir(INPUT_DIR, { recursive: true });
   await fs.mkdir(PROCESSED_DIR, { recursive: true });
@@ -210,7 +234,12 @@ const processWatchedFiles = async () => {
       }
 
       if (uploads.length) {
-        await sftpService.uploadFilesViaSftp(uploads);
+        for (const target of SFTP_TARGETS) {
+          console.log(
+            `[SFTP] Uploading ${uploads.length} file(s) for user ${target.username || "default"}`
+          );
+          await sftpService.uploadFilesViaSftp(uploads, target);
+        }
       } else {
         console.log(
           "[SFTP] No files queued for upload (no TXT permitido/creado y/o no hubo reporte de error)."

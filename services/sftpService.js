@@ -3,7 +3,7 @@ const Client = require("ssh2-sftp-client");
 const fs = require("fs/promises");
 const path = require("path");
 
-const sftpConfig = {
+const baseSftpConfig = {
   host: process.env.SFTP_HOST,
   port: parseInt(process.env.SFTP_PORT || "22", 10),
   username: process.env.SFTP_USERNAME,
@@ -20,6 +20,15 @@ const sftpConfig = {
 const NAME_STRATEGY = (
   process.env.SFTP_NAME_CONFLICT_STRATEGY || "overwrite"
 ).toLowerCase();
+
+function buildSftpConfig(override = {}) {
+  const merged = { ...baseSftpConfig, ...override };
+  merged.port = parseInt(merged.port || "22", 10);
+  if (override.privateKeyPath) {
+    merged.privateKey = require("fs").readFileSync(override.privateKeyPath);
+  }
+  return merged;
+}
 
 /** Util: separa nombre y extensión para rutas POSIX */
 function splitExtPosix(filename) {
@@ -88,7 +97,7 @@ function isTransientEndError(err) {
  * @param {Array<{local:string, remote:string}>} files
  * @returns {Promise<Array<{local:string, remote:string}>>} rutas remotas finales
  */
-async function uploadFilesViaSftp(files) {
+async function uploadFilesViaSftp(files, targetOverride) {
   if (!files || !files.length) return [];
 
   const sftp = new Client();
@@ -97,8 +106,9 @@ async function uploadFilesViaSftp(files) {
   let connectDone = false;
 
   try {
+    const connectConfig = buildSftpConfig(targetOverride);
     console.log(
-      `[SFTP Service] Connecting to SFTP server: ${sftpConfig.host}:${sftpConfig.port}...`
+      `[SFTP Service] Connecting to SFTP server: ${connectConfig.host}:${connectConfig.port}...`
     );
 
     // Manejo de errores del cliente (antes de conectar)
@@ -127,7 +137,7 @@ async function uploadFilesViaSftp(files) {
       }
     });
 
-    await sftp.connect(sftpConfig);
+    await sftp.connect(connectConfig);
     connectDone = true;
     console.log(
       `[SFTP Service] Connected. Uploading ${files.length} file(s)...`
