@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev:backend": "nodemon index.js",
+    "dev:backend": "node index.js",
     "dev:backend:test": "node index.js",
     "build": "npm install --include=dev && node esbuild.config.js build",
     "dev:frontend": "node esbuild.config.js dev",
