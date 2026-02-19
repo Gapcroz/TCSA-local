@@ -47,7 +47,13 @@ let splScrapSchemaSpec = [
   {
     item: 1,
     dataElement: "Customer(southbound) / Ship to (northbound)",
-    aliases: ["Customer", "Ship to"],
+    aliases: [
+      "Customer",
+      "Ship to",
+      "Customer (southbound) / Ship to (northbound)",
+      "Customer (southbound) / Ship to (northbound) /Final Dispousal",
+      "Customer (southbound) / Ship to (northbound) /Final Disposal",
+    ],
     type: "A",
     length: 60,
     format: "X(60)",
@@ -184,6 +190,7 @@ let splScrapSchemaSpec = [
   {
     item: 12,
     dataElement: "Unit Value (USD)",
+    aliases: ["Unit Value(USD)"],
     type: "N",
     length: 17,
     position: "199-215",
@@ -195,6 +202,7 @@ let splScrapSchemaSpec = [
   {
     item: 13,
     dataElement: "Added Value (USD)",
+    aliases: ["Added Value(USD)"],
     type: "N",
     length: 17,
     position: "216-232",
@@ -206,6 +214,7 @@ let splScrapSchemaSpec = [
   {
     item: 14,
     dataElement: "Total Value (USD)",
+    aliases: ["Total Value(USD)"],
     type: "N",
     length: 17,
     position: "233-249",
@@ -387,6 +396,7 @@ let splScrapSchemaSpec = [
   {
     item: 30,
     dataElement: "Customizer 1",
+    aliases: ["Dummy 1", "Dummy1"],
     type: "A",
     length: 40,
     format: "X(40)",
@@ -397,6 +407,7 @@ let splScrapSchemaSpec = [
   {
     item: 31,
     dataElement: "Customizer 2",
+    aliases: ["Dummy 2", "Dummy2"],
     type: "A",
     length: 40,
     format: "X(40)",
@@ -407,6 +418,7 @@ let splScrapSchemaSpec = [
   {
     item: 32,
     dataElement: "Customizer 3",
+    aliases: ["Dummy 3", "Dummy3"],
     type: "A",
     length: 40,
     format: "X(40)",
@@ -417,6 +429,7 @@ let splScrapSchemaSpec = [
   {
     item: 33,
     dataElement: "Customizer 4",
+    aliases: ["Dummy 4", "Dummy4"],
     type: "A",
     length: 40,
     format: "X(40)",
@@ -427,6 +440,7 @@ let splScrapSchemaSpec = [
   {
     item: 34,
     dataElement: "Customizer 5",
+    aliases: ["Dummy 5", "Dummy5"],
     type: "A",
     length: 40,
     format: "X(40)",
@@ -437,6 +451,7 @@ let splScrapSchemaSpec = [
   {
     item: 35,
     dataElement: "Customizer 6",
+    aliases: ["Dummy 6", "Dummy6"],
     type: "A",
     length: 40,
     format: "X(40)",
@@ -447,6 +462,7 @@ let splScrapSchemaSpec = [
   {
     item: 36,
     dataElement: "Customizer 7",
+    aliases: ["Dummy 7", "Dummy7"],
     type: "A",
     length: 40,
     format: "X(40)",
@@ -457,6 +473,7 @@ let splScrapSchemaSpec = [
   {
     item: 37,
     dataElement: "Customizer 8",
+    aliases: ["Dummy 8", "Dummy8"],
     type: "A",
     length: 40,
     format: "X(40)",
@@ -467,6 +484,7 @@ let splScrapSchemaSpec = [
   {
     item: 38,
     dataElement: "Customizer 9",
+    aliases: ["Dummy 9", "Dummy9"],
     type: "A",
     length: 40,
     format: "X(40)",
@@ -477,6 +495,7 @@ let splScrapSchemaSpec = [
   {
     item: 39,
     dataElement: "Customizer 10",
+    aliases: ["Dummy 10", "Dummy10"],
     type: "A",
     length: 40,
     format: "X(40)",
