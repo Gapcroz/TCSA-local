@@ -83,9 +83,19 @@ const processWatchedFiles = async () => {
     return;
   }
 
+  const candidates = [];
   for (const fileName of files) {
     const filePath = path.join(INPUT_DIR, fileName);
-    const stats = await fs.stat(filePath);
+    let stats;
+    try {
+      stats = await fs.stat(filePath);
+    } catch (err) {
+      console.warn(
+        `[Automated Service] Could not stat ${fileName}, skipping.`,
+        err
+      );
+      continue;
+    }
     if (
       !stats.isFile() ||
       fileName.startsWith(".") ||
@@ -97,7 +107,27 @@ const processWatchedFiles = async () => {
       );
       continue;
     }
+    candidates.push({ fileName, filePath, stats });
+  }
 
+  if (!candidates.length) {
+    console.log("[Automated Service] No valid files to process.");
+    return;
+  }
+
+  candidates.sort((a, b) => {
+    const aTime = a.stats.birthtimeMs ?? a.stats.mtimeMs;
+    const bTime = b.stats.birthtimeMs ?? b.stats.mtimeMs;
+    if (aTime !== bTime) return aTime - bTime;
+    return a.stats.mtimeMs - b.stats.mtimeMs;
+  });
+
+  const filesToProcess = [candidates[0]];
+  console.log(
+    `[Automated Service] Queued files: ${candidates.length}. Processing oldest first: ${filesToProcess[0].fileName}`
+  );
+
+  for (const { fileName, filePath } of filesToProcess) {
     const originalName = fileName;
     let documentType = null;
     let fileBuffer;
@@ -156,6 +186,13 @@ const processWatchedFiles = async () => {
         isAutomated: true,
       });
 
+      const previousJob =
+        await conversionJobRepository.getLatestAutomatedJobByFileNameAndDocType(
+          originalName,
+          documentType
+        );
+      const previousRemotePath = previousJob?.remoteConvertedPath || null;
+
       const processingResult =
         await fileConversionService.processFileForConversion(
           fileBuffer,
@@ -169,16 +206,6 @@ const processWatchedFiles = async () => {
       convertedFilePath = processingResult.convertedFilePath; // puede ser null
       errorReportPath = processingResult.errorReportPath;
       const jobStatus = processingResult.status; // "completed" | "completed_with_errors" | "failed"
-
-      await conversionJobRepository.updateConversionJobStatus(
-        newJob._id,
-        jobStatus,
-        {
-          convertedFilePath,
-          errorReportPath,
-          completedAt: new Date(),
-        }
-      );
 
       console.log(
         `[Automated Service] Job result for ${originalName} -> status=${jobStatus}, convertedFilePath=${
@@ -208,6 +235,9 @@ const processWatchedFiles = async () => {
       const canUploadTxt =
         !hasErrors || (hasErrors && ALLOW_UPLOAD_ON_VALIDATION_ERROR);
 
+      let remoteConvertedPath = null;
+      let remoteErrorPath = null;
+
       // (1) TXT convertido (sin .txt en remoto)
       if (
         canUploadTxt &&
@@ -217,19 +247,23 @@ const processWatchedFiles = async () => {
         const remoteBase = path
           .basename(convertedFilePath)
           .replace(/\.txt$/i, "");
+        remoteConvertedPath = toPosix(
+          path.join(sftpRemoteUploadDir, remoteBase)
+        );
         uploads.push({
           local: convertedFilePath,
-          remote: toPosix(path.join(sftpRemoteUploadDir, remoteBase)),
+          remote: remoteConvertedPath,
         });
       }
 
       // (2) Reporte de errores (si existe)
       if (errorReportPath && (await fileExists(errorReportPath))) {
+        remoteErrorPath = toPosix(
+          path.join(sftpRemoteErrorDir, path.basename(errorReportPath))
+        );
         uploads.push({
           local: errorReportPath,
-          remote: toPosix(
-            path.join(sftpRemoteErrorDir, path.basename(errorReportPath))
-          ),
+          remote: remoteErrorPath,
         });
       }
 
@@ -238,13 +272,53 @@ const processWatchedFiles = async () => {
           console.log(
             `[SFTP] Uploading ${uploads.length} file(s) for user ${target.username || "default"}`
           );
-          await sftpService.uploadFilesViaSftp(uploads, target);
+          const uploadResults = await sftpService.uploadFilesViaSftp(
+            uploads,
+            target
+          );
+
+          const convertedUpload = uploadResults.find(
+            (r) => r.local === convertedFilePath
+          );
+          if (convertedUpload) remoteConvertedPath = convertedUpload.remote;
+          const errorUpload = uploadResults.find(
+            (r) => r.local === errorReportPath
+          );
+          if (errorUpload) remoteErrorPath = errorUpload.remote;
+        }
+
+        if (
+          previousRemotePath &&
+          remoteConvertedPath &&
+          previousRemotePath !== remoteConvertedPath
+        ) {
+          for (const target of SFTP_TARGETS) {
+            try {
+              await sftpService.deleteRemoteFile(previousRemotePath, target);
+            } catch (e) {
+              console.warn(
+                `[SFTP] Could not delete previous remote file ${previousRemotePath}: ${e.message}`
+              );
+            }
+          }
         }
       } else {
         console.log(
           "[SFTP] No files queued for upload (no TXT permitido/creado y/o no hubo reporte de error)."
         );
       }
+
+      await conversionJobRepository.updateConversionJobStatus(
+        newJob._id,
+        jobStatus,
+        {
+          convertedFilePath,
+          errorReportPath,
+          remoteConvertedPath,
+          remoteErrorPath,
+          completedAt: new Date(),
+        }
+      );
 
       // --- Limpieza de artefactos locales ---
       const tryUnlink = async (p) => {

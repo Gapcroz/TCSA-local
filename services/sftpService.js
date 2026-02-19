@@ -190,6 +190,82 @@ async function uploadFilesViaSftp(files, targetOverride) {
   return results;
 }
 
+/**
+ * Borra un archivo remoto en SFTP (best-effort si no existe).
+ * @param {string} remotePath
+ * @returns {Promise<boolean>} true si borrÃ³, false si no existÃ­a
+ */
+async function deleteRemoteFile(remotePath, targetOverride) {
+  if (!remotePath) return false;
+
+  const sftp = new Client();
+  let connectDone = false;
+  let allOpsCompleted = false;
+
+  try {
+    const connectConfig = buildSftpConfig(targetOverride);
+    console.log(
+      `[SFTP Service] Connecting to SFTP server for delete: ${connectConfig.host}:${connectConfig.port}...`
+    );
+
+    sftp.on("error", (err) => {
+      if (allOpsCompleted && isTransientEndError(err)) {
+        console.warn(
+          `[SFTP Service] Transient SFTP error post-delete (ignorado): ${err.message}`
+        );
+      } else {
+        console.error(`[SFTP Service] SFTP client error:`, err);
+      }
+    });
+
+    sftp.on("close", (hadErr) => {
+      if (hadErr && allOpsCompleted) {
+        console.warn(
+          `[SFTP Service] SFTP closed with error post-delete (ignorado).`
+        );
+      }
+    });
+
+    sftp.on("end", () => {
+      if (allOpsCompleted) {
+        console.warn(`[SFTP Service] SFTP session ended after delete (ok).`);
+      }
+    });
+
+    await sftp.connect(connectConfig);
+    connectDone = true;
+
+    const exists = await sftp.exists(remotePath);
+    if (!exists) {
+      allOpsCompleted = true;
+      return false;
+    }
+
+    await sftp.delete(remotePath);
+    console.log(`[SFTP Service] Deleted remote file: ${remotePath}`);
+    allOpsCompleted = true;
+    return true;
+  } catch (err) {
+    console.error(`[SFTP Service] Delete failed:`, err);
+    throw new Error(`SFTP delete failed: ${err.message}`);
+  } finally {
+    if (connectDone) {
+      try {
+        await sftp.end();
+      } catch (e) {
+        if (allOpsCompleted && isTransientEndError(e)) {
+          console.warn(
+            `[SFTP Service] Ignoring end() error post-delete: ${e.message}`
+          );
+        } else {
+          throw e;
+        }
+      }
+    }
+  }
+}
+
 module.exports = {
   uploadFilesViaSftp,
+  deleteRemoteFile,
 };
