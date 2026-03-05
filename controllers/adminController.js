@@ -88,7 +88,7 @@ const deleteUser = async (req, res) => {
     }
 
     // Eliminar sesiones del usuario
-    const sessionCollection = mongoose.connection.collection('sessions_hzo');
+    const sessionCollection = mongoose.connection.collection('sessions_tcsa');
     let cursor;
     try {
       // Buscar y eliminar sesiones usando agregación para evitar cargar todo en memoria

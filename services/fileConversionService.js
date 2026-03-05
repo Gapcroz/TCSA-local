@@ -263,6 +263,16 @@ const SPL_SCRAP_HEADERS = [
   { field: "PO Number", header: "PO Number" },
 ];
 
+const SPL_SCRAP_NUMERIC_HEADERS = new Set([
+  "Total gross Weight",
+  "Total bundles",
+  "Quantity",
+  "Unit Value (USD)",
+  "Added Value (USD)",
+  "Total Value (USD)",
+  "Unit Net Weight",
+]);
+
 const formatDateYmd = (value) => {
   if (!value) return "";
   let d;
@@ -288,6 +298,21 @@ const toCsvValue = (value) => {
   return String(value);
 };
 
+const formatSplScrapNumber = (value) => {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") {
+    const cleaned = value.replace(/,/g, "").trim();
+    if (cleaned === "") return "";
+    const num = Number(cleaned);
+    if (Number.isFinite(num)) return num.toFixed(8);
+    return value;
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value.toFixed(8) : "";
+  }
+  return String(value);
+};
+
 async function writeSplScrapCSV(data, filePath) {
   const rows = data.Sheet1 || [];
   const lines = [];
@@ -305,10 +330,12 @@ async function writeSplScrapCSV(data, filePath) {
   };
 
   for (const record of rows) {
-    const line = SPL_SCRAP_HEADERS.map(({ field }) => {
+    const line = SPL_SCRAP_HEADERS.map(({ field, header }) => {
       const raw = pickValue(record, field);
       // basic CSV escaping for commas/quotes
-      let val = toCsvValue(raw);
+      let val = SPL_SCRAP_NUMERIC_HEADERS.has(header)
+        ? formatSplScrapNumber(raw)
+        : toCsvValue(raw);
       if (/[",\n]/.test(val)) {
         val = `"${val.replace(/"/g, '""')}"`;
       }
