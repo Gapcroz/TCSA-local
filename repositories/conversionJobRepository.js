@@ -117,6 +117,19 @@ const getLatestAutomatedJobByFileNameAndDocType = async (
     .lean();
 };
 
+/**
+ * Obtiene el ultimo job automatizado por nombre de archivo.
+ * Usado para marcar fallos cuando el worker timeoutea.
+ */
+const getLatestAutomatedJobByFileName = async (fileName) => {
+  return await ConversionJob.findOne({
+    fileName,
+    isAutomated: true,
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+};
+
 module.exports = {
   createConversionJob,
   getConversionJobById,
@@ -125,4 +138,5 @@ module.exports = {
   getPaginatedAllJobs, // <-- EXPORT THE PAGINATED FUNCTION
   deleteJobsByUserId,
   getLatestAutomatedJobByFileNameAndDocType,
+  getLatestAutomatedJobByFileName,
 };

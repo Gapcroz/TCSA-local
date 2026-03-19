@@ -5,6 +5,7 @@ const path = require("path");
 const fs = require("fs/promises");
 const { detectDocumentType } = require("../utils/documentDetector");
 const { validateFormatCompatibility } = require("../utils/documentFormatRules");
+const { convertXlsToXlsx } = require("../utils/xlsConverter");
 
 // Middleware de Multer (configúralo una vez)
 const multer = require("multer");
@@ -30,20 +31,36 @@ const uploadAndConvertFile = async (req, res) => {
   const { path: tempFilePath, originalname } = req.file;
   const { outputFormat, ...conversionOptions } = req.body;
   let fileBuffer;
+  let processingFileName = originalname;
+  let convertedTempPath = null;
+
+  const cleanupTempFiles = async () => {
+    if (convertedTempPath) {
+      await fs.unlink(convertedTempPath).catch(() => {});
+    }
+    await fs.unlink(tempFilePath).catch(() => {});
+  };
 
   try {
-    // Read the buffer once for potential detection and for processing
-    fileBuffer = await fs.readFile(tempFilePath);
+    const originalExt = path.extname(originalname).toLowerCase();
+    if (originalExt === ".xls") {
+      convertedTempPath = await convertXlsToXlsx(tempFilePath);
+      fileBuffer = await fs.readFile(convertedTempPath);
+      processingFileName = `${path.parse(originalname).name}.xlsx`;
+    } else {
+      // Read the buffer once for potential detection and for processing
+      fileBuffer = await fs.readFile(tempFilePath);
+    }
   } catch (readError) {
     // If the file can't be read, delete the temp file and return an error
-    await fs.unlink(tempFilePath).catch(() => {});
+    await cleanupTempFiles();
     return res
       .status(500)
       .json({ message: "Error reading uploaded file.", error: readError.message });
   }
 
   if (!outputFormat) {
-    await fs.unlink(tempFilePath);
+    await cleanupTempFiles();
     return res
       .status(400)
       .json({ message: "El formato de salida es requerido." });
@@ -55,7 +72,10 @@ const uploadAndConvertFile = async (req, res) => {
     console.log(
       "[FileController] documentType not provided. Attempting auto-detection."
     );
-    const detectedType = await detectDocumentType(fileBuffer, originalname);
+    const detectedType = await detectDocumentType(
+      fileBuffer,
+      processingFileName
+    );
 
     if (detectedType) {
       // If detection is successful, use the detected type.
@@ -69,7 +89,7 @@ const uploadAndConvertFile = async (req, res) => {
       console.log(
         "[FileController] Auto-detection failed. Requesting manual input from user."
       );
-      await fs.unlink(tempFilePath); // Clean up the temporary file
+      await cleanupTempFiles(); // Clean up the temporary file(s)
       return res.status(400).json({
         message:
           "Could not determine document type. Please select it manually.",
@@ -86,7 +106,7 @@ const uploadAndConvertFile = async (req, res) => {
     );
     
     if (!validation.isValid) {
-      await fs.unlink(tempFilePath);
+      await cleanupTempFiles();
       return res.status(400).json({ message: validation.message });
     }
   }
@@ -94,7 +114,7 @@ const uploadAndConvertFile = async (req, res) => {
 
   // This check assumes a middleware has populated req.user
   if (!req.user || !req.user.id) {
-    await fs.unlink(tempFilePath);
+    await cleanupTempFiles();
     return res.status(401).json({
       message: "Usuario no autenticado para realizar esta operación.",
     });
@@ -115,7 +135,7 @@ const uploadAndConvertFile = async (req, res) => {
     const { convertedFilePath, errorReportPath, status } =
       await fileConversionService.processFileForConversion(
         fileBuffer, // Use the buffer we already read
-        originalname,
+        processingFileName,
         outputFormat,
         conversionOptions,
         req.user.id,
@@ -128,8 +148,8 @@ const uploadAndConvertFile = async (req, res) => {
       completedAt: new Date(),
     });
 
-    // The temp file is no longer needed after processing is complete
-    await fs.unlink(tempFilePath);
+    // The temp file(s) are no longer needed after processing is complete
+    await cleanupTempFiles();
 
     res.status(200).json({
       message: "Archivo procesado exitosamente.",
@@ -140,13 +160,7 @@ const uploadAndConvertFile = async (req, res) => {
   } catch (error) {
     console.error("Error al procesar el archivo:", error);
     // Cleanup in case of failure
-    if (await fileExists(tempFilePath)) {
-      await fs
-        .unlink(tempFilePath)
-        .catch((e) =>
-          console.error("Error deleting temp file in error handler:", e)
-        );
-    }
+    await cleanupTempFiles();
     if (newJob && newJob._id) {
       await conversionJobRepository.updateConversionJobStatus(
         newJob._id,
