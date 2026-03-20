@@ -300,22 +300,51 @@ const formatDateYmd = (value) => {
 const toCsvValue = (value) => {
   if (value === null || value === undefined) return "";
   if (value instanceof Date) return formatDateYmd(value);
+  if (typeof value === "object") {
+    if (value instanceof String) return value.toString();
+    if (value.result !== undefined) return String(value.result);
+    if (value.text) return String(value.text);
+    if (Array.isArray(value.richText)) {
+      return value.richText.map((rt) => rt.text || "").join("");
+    }
+    return "";
+  }
   if (Number.isFinite(value)) return String(value);
   return String(value);
 };
 
+const roundUpToDecimals = (num, decimals) => {
+  if (!Number.isFinite(num)) return NaN;
+  const factor = Math.pow(10, decimals);
+  // Subtract a tiny epsilon to avoid floating overflow to next integer
+  const scaled = Math.ceil(num * factor - 1e-9);
+  return scaled / factor;
+};
+
 const formatSplScrapNumber = (value) => {
   if (value === null || value === undefined) return "";
+  if (value instanceof Date) return formatDateYmd(value);
+  if (typeof value === "object") {
+    const v = toCsvValue(value);
+    if (v === "") return "";
+    value = v;
+  }
   if (typeof value === "string") {
     const cleaned = value.replace(/,/g, "").trim();
     if (cleaned === "") return "";
     const num = Number(cleaned);
-    if (Number.isFinite(num)) return num === 0 ? "0" : num.toFixed(8);
+    if (Number.isFinite(num)) {
+      const rounded = roundUpToDecimals(num, 8);
+      if (!Number.isFinite(rounded)) return "";
+      return rounded === 0 ? "0" : rounded.toFixed(8);
+    }
     return value;
   }
   if (typeof value === "number") {
     if (!Number.isFinite(value)) return "";
-    return value === 0 ? "0" : value.toFixed(8);
+    const rounded = roundUpToDecimals(value, 8);
+    if (!Number.isFinite(rounded)) return "";
+    return rounded === 0 ? "0" : rounded.toFixed(8);
   }
   return String(value);
 };
@@ -324,6 +353,9 @@ const isEmptyValue = (value) => {
   if (value === null || value === undefined) return true;
   if (typeof value === "string" && value.trim() === "") return true;
   if (typeof value === "number" && !Number.isFinite(value)) return true;
+  if (typeof value === "object") {
+    return toCsvValue(value) === "";
+  }
   return false;
 };
 
