@@ -273,6 +273,12 @@ const SPL_SCRAP_NUMERIC_HEADERS = new Set([
   "Unit Net Weight",
 ]);
 
+// Headers that must output "0" when empty (packing list requirement)
+const SPL_SCRAP_FORCE_ZERO_HEADERS = new Set([
+  ...SPL_SCRAP_NUMERIC_HEADERS,
+  "Waybill Number",
+]);
+
 const formatDateYmd = (value) => {
   if (!value) return "";
   let d;
@@ -304,13 +310,21 @@ const formatSplScrapNumber = (value) => {
     const cleaned = value.replace(/,/g, "").trim();
     if (cleaned === "") return "";
     const num = Number(cleaned);
-    if (Number.isFinite(num)) return num.toFixed(8);
+    if (Number.isFinite(num)) return num === 0 ? "0" : num.toFixed(8);
     return value;
   }
   if (typeof value === "number") {
-    return Number.isFinite(value) ? value.toFixed(8) : "";
+    if (!Number.isFinite(value)) return "";
+    return value === 0 ? "0" : value.toFixed(8);
   }
   return String(value);
+};
+
+const isEmptyValue = (value) => {
+  if (value === null || value === undefined) return true;
+  if (typeof value === "string" && value.trim() === "") return true;
+  if (typeof value === "number" && !Number.isFinite(value)) return true;
+  return false;
 };
 
 async function writeSplScrapCSV(data, filePath) {
@@ -332,10 +346,14 @@ async function writeSplScrapCSV(data, filePath) {
   for (const record of rows) {
     const line = SPL_SCRAP_HEADERS.map(({ field, header }) => {
       const raw = pickValue(record, field);
+      const normalized =
+        SPL_SCRAP_FORCE_ZERO_HEADERS.has(header) && isEmptyValue(raw)
+          ? 0
+          : raw;
       // basic CSV escaping for commas/quotes
       let val = SPL_SCRAP_NUMERIC_HEADERS.has(header)
-        ? formatSplScrapNumber(raw)
-        : toCsvValue(raw);
+        ? formatSplScrapNumber(normalized)
+        : toCsvValue(normalized);
       if (/[",\n]/.test(val)) {
         val = `"${val.replace(/"/g, '""')}"`;
       }
