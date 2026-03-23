@@ -157,6 +157,17 @@ async function writeToStandardizedTXT(data, filePath, documentType) {
 
   const { schemaSpec } = getRegistryEntry(documentType);
 
+  const normalizeTextForAnsi = (value) => {
+    if (value === null || value === undefined) return "";
+    let str = String(value);
+    // Normalize fullwidth ASCII variants (e.g., （ ）) to avoid UTF-8 multibyte
+    if (/[\uFF01-\uFF5E]/.test(str)) {
+      str = str.normalize("NFKC");
+    }
+    // Replace NBSP/tabs and trim to avoid leading whitespace in fixed-width fields
+    return str.replace(/\u00A0/g, " ").replace(/\t/g, " ").trim();
+  };
+
   const lines = records.map((record) => {
     const naftaRaw = String(record["NAFTA"] ?? "")
       .trim()
@@ -214,7 +225,7 @@ async function writeToStandardizedTXT(data, filePath, documentType) {
             formattedValue = "";
           }
         } else {
-          formattedValue = String(value);
+          formattedValue = normalizeTextForAnsi(value);
         }
       }
 
