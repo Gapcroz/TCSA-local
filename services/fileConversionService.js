@@ -332,6 +332,15 @@ const roundUpToDecimals = (num, decimals) => {
   return scaled / factor;
 };
 
+const trimTrailingZeros = (str) => {
+  if (typeof str !== "string") return str;
+  if (!str.includes(".")) return str;
+  let out = str.replace(/0+$/, "");
+  if (out.endsWith(".")) out = out.slice(0, -1);
+  if (out === "-0") return "0";
+  return out;
+};
+
 const formatSplScrapNumber = (value) => {
   if (value === null || value === undefined) return "";
   if (value instanceof Date) return formatDateYmd(value);
@@ -343,19 +352,32 @@ const formatSplScrapNumber = (value) => {
   if (typeof value === "string") {
     const cleaned = value.replace(/,/g, "").trim();
     if (cleaned === "") return "";
+    const m = cleaned.match(/^-?\d+(?:\.(\d+))?$/);
+    if (m) {
+      const decimals = m[1]?.length ?? 0;
+      if (decimals > 8) {
+        const num = Number(cleaned);
+        if (!Number.isFinite(num)) return cleaned;
+        const rounded = roundUpToDecimals(num, 8);
+        if (!Number.isFinite(rounded)) return cleaned;
+        return trimTrailingZeros(rounded.toFixed(8));
+      }
+      // <= 8 decimales: no rellenar, solo recortar ceros
+      return trimTrailingZeros(cleaned);
+    }
     const num = Number(cleaned);
     if (Number.isFinite(num)) {
       const rounded = roundUpToDecimals(num, 8);
       if (!Number.isFinite(rounded)) return "";
-      return rounded === 0 ? "0" : rounded.toFixed(8);
+      return trimTrailingZeros(rounded.toFixed(8));
     }
-    return value;
+    return cleaned;
   }
   if (typeof value === "number") {
     if (!Number.isFinite(value)) return "";
     const rounded = roundUpToDecimals(value, 8);
     if (!Number.isFinite(rounded)) return "";
-    return rounded === 0 ? "0" : rounded.toFixed(8);
+    return trimTrailingZeros(rounded.toFixed(8));
   }
   return String(value);
 };
