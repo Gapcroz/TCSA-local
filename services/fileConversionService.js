@@ -308,20 +308,33 @@ const formatDateYmd = (value) => {
   return `${y}${m}${day}`;
 };
 
+const normalizeTextForCsv = (value) => {
+  if (value === null || value === undefined) return "";
+  let str = String(value);
+  // Normalize fullwidth ASCII variants (e.g., fullwidth parentheses)
+  if (/[\uFF01-\uFF5E]/.test(str)) {
+    str = str.normalize("NFKC");
+  }
+  return str.replace(/\u00A0/g, " ").replace(/\t/g, " ").trim();
+};
+
 const toCsvValue = (value) => {
   if (value === null || value === undefined) return "";
   if (value instanceof Date) return formatDateYmd(value);
   if (typeof value === "object") {
-    if (value instanceof String) return value.toString();
-    if (value.result !== undefined) return String(value.result);
-    if (value.text) return String(value.text);
+    if (value instanceof String) return normalizeTextForCsv(value.toString());
+    if (value.result !== undefined)
+      return normalizeTextForCsv(String(value.result));
+    if (value.text) return normalizeTextForCsv(String(value.text));
     if (Array.isArray(value.richText)) {
-      return value.richText.map((rt) => rt.text || "").join("");
+      return normalizeTextForCsv(
+        value.richText.map((rt) => rt.text || "").join("")
+      );
     }
     return "";
   }
   if (Number.isFinite(value)) return String(value);
-  return String(value);
+  return normalizeTextForCsv(String(value));
 };
 
 const roundUpToDecimals = (num, decimals) => {
