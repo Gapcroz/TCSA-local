@@ -7,6 +7,7 @@ const { normalizeUOM } = require("../data/uomCatalog");
 // --- HTS helpers ---
 const HTS_FORMATTED_RE = /^\d{4}\.\d{2}\.\d{4}$/; // ####.##.####
 const HTS_10_DIGITS_RE = /^\d{10}$/;
+const CONTROL_WS_RE = /[\t\r\n]+/g;
 
 /** Recibe cualquier string con o sin puntos y devuelve ####.##.#### (12 chars) */
 function normalizeHTS(value) {
@@ -151,6 +152,14 @@ function normalizeSplPowerSource(value) {
   }
   return raw;
 }
+
+function cleanControlWhitespace(value) {
+  if (value === null || value === undefined) return value;
+  if (value instanceof String) value = value.toString();
+  if (typeof value !== "string") return value;
+  const cleaned = value.replace(CONTROL_WS_RE, " ").trim();
+  return cleaned;
+}
 function coerceExcelDate(value) {
   if (value == null || value === "") return null;
 
@@ -221,10 +230,19 @@ const applyTransformations = (parsedData, documentType) => {
     // --- Transformaciones por campo (según schema) ---
     schemaSpec.forEach((fieldSpec) => {
       const fieldName = fieldSpec.dataElement;
-      const v = record[fieldName];
+      let v = record[fieldName];
 
       // Si el campo no existe o es null/undefined, salta
       if (v === undefined || v === null) return;
+
+      // Limpieza de tabs/CR/LF en todos los campos excepto Description
+      if (fieldName !== "Description") {
+        const cleaned = cleanControlWhitespace(v);
+        if (cleaned !== v) {
+          record[fieldName] = cleaned;
+          v = cleaned;
+        }
+      }
 
       // splScrap: normalize enums / codes
       if (documentType === "splScrap") {
