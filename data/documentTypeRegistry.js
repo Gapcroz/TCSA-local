@@ -32,7 +32,7 @@ const documentRegistry = {
   splScrap: {
     model: SPLScrap,
     schemaSpec: splScrapSchemaSpec,
-    filePrefix: ["PI", "PE"],
+    filePrefix: ["PI", "PE", "PS"],
     docType: "PackingList",
   },
 };

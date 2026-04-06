@@ -6,7 +6,7 @@ const DOCUMENT_FORMAT_RULES = {
   splScrap: {
     allowedFormats: ['csv'],
     defaultFormat: 'csv',
-    description: 'Packing List (PI/PE)'
+    description: 'Packing List (PI/PE/PS)'
   },
   finishedProduct: {
     allowedFormats: ['txt'],

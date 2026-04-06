@@ -86,7 +86,7 @@ const processFileForConversion = async (
   if (!hasErrors || WRITE_TXT_ON_VALIDATION_ERROR) {
     let outputFileName = `${baseName}.${outputExt}`;
 
-    // For splScrap use PI/PE + timestamp filename convention
+    // For splScrap use PI/PE/PS + timestamp filename convention
     if (isSplScrap) {
       const prefix = pickSplScrapPrefix(transformedData);
       const generated = generateSplScrapFilename(prefix, new Date());
@@ -443,11 +443,12 @@ async function writeSplScrapCSV(data, filePath) {
   await fs.writeFile(filePath, lines.join("\n"));
 }
 
-// prefix PI for Southbound, PE for Northbound (default PE)
+// prefix PI for Southbound, PE for Northbound, PS for Scrap (default PE)
 const pickSplScrapPrefix = (data) => {
   const rows = data.Sheet1 || [];
   if (!rows.length) return "PE";
   const shipment = String(rows[0]["Type of shipment"] || "").toLowerCase();
+  if (shipment.includes("scrap")) return "PS";
   if (shipment.includes("south")) return "PI";
   if (shipment.includes("north")) return "PE";
   return "PE";

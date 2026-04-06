@@ -139,8 +139,8 @@ async function detectSplScrapTemplate(buffer, ext) {
 // ---------- pistas por nombre ----------
 function filenameHintToDocType(name) {
   const b = path.basename(name).toLowerCase();
-  // Prefijos que usa el cliente: PE/PI => Packing List (SPL-Scrap/EQ)
-  if (/^(pe|pi)\d*/i.test(b)) return "splScrap";
+  // Prefijos que usa el cliente: PE/PI/PS => Packing List (SPL-Scrap/EQ)
+  if (/^(pe|pi|ps)\d*/i.test(b)) return "splScrap";
   if (/\brm\b|_rm|rmexample/.test(b)) return "rawMaterial";
   if (/\bfg\b|_fg|fgexample|finished.?good/.test(b)) return "finishedProduct";
   if (/\bbm\b|_bm|bom|bomexample/.test(b)) return "billOfMaterials";

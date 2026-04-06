@@ -6,6 +6,15 @@ const HTS_FORMATTED_RE = /^\d{4}\.\d{2}\.\d{4}$/; // ####.##.####
 const isBlank = (v) => v === null || v === undefined || String(v).trim() === "";
 const ALLOW_EMPTY_MANDATORY_FIELDS =
   (process.env.ALLOW_EMPTY_MANDATORY_FIELDS || "true").toLowerCase() === "true";
+const isZeroish = (v) => {
+  if (v === null || v === undefined) return false;
+  if (typeof v === "number") return Number.isFinite(v) && v === 0;
+  const raw = String(v).trim();
+  if (raw === "") return false;
+  const cleaned = raw.replace(/,/g, "");
+  const num = Number(cleaned);
+  return Number.isFinite(num) && num === 0;
+};
 
 /**
  * Validates the integrity of parsed data against its schema specification.
@@ -231,6 +240,59 @@ const applyBusinessValidations = async (data, documentType) => {
         }
       }
     });
+  }
+
+  if (documentType === "splScrap") {
+    const isScrap = records.some((record) => {
+      const shipment = String(record["Type of shipment"] ?? "")
+        .trim()
+        .toUpperCase();
+      return shipment.includes("SCRAP");
+    });
+
+    if (isScrap) {
+      records.forEach((record, recordIndex) => {
+        const rowNum = recordIndex + 2;
+
+        const typeOfGoods = record["Type of goods"];
+        const typeNorm = String(typeOfGoods ?? "").trim().toUpperCase();
+        if (typeNorm !== "FG") {
+          errors.push({
+            type: "Business Rule Violation",
+            message: `Row ${rowNum}: For Scrap shipments, "Type of goods" must be "FG". Got "${typeOfGoods}".`,
+            field: "Type of goods",
+            row: rowNum,
+            value: typeOfGoods,
+            expected: ["FG"],
+          });
+        }
+
+        const uom = record["Unit Of Measure"];
+        const uomNorm = String(uom ?? "").trim().toUpperCase();
+        if (uomNorm !== "KG" && uomNorm !== "PCS") {
+          errors.push({
+            type: "Business Rule Violation",
+            message: `Row ${rowNum}: For Scrap shipments, "Unit Of Measure" must be "KG" or "PCS". Got "${uom}".`,
+            field: "Unit Of Measure",
+            row: rowNum,
+            value: uom,
+            expected: ["KG", "PCS"],
+          });
+        }
+
+        const addedValue = record["Added Value (USD)"];
+        if (!isBlank(addedValue) && !isZeroish(addedValue)) {
+          errors.push({
+            type: "Business Rule Violation",
+            message: `Row ${rowNum}: For Scrap shipments, "Added Value (USD)" must be empty or 0. Got "${addedValue}".`,
+            field: "Added Value (USD)",
+            row: rowNum,
+            value: addedValue,
+            expected: ["", "0"],
+          });
+        }
+      });
+    }
   }
 
   return { isValid: errors.length === 0, errors };
